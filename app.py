@@ -60,7 +60,7 @@ def call_amazon_q_cli(requirement_text):
 """
         
         # Amazon Q CLI 실행 (현재 디렉토리에서 실행)
-        cmd = f'source ~/.bashrc && export PATH=$PATH:/home/yujun/.local/bin && cd /mnt/c/study/AB/ArchitectureBuilder && printf "y\\ny\\ny\\n" | q chat "{diagram_prompt}"'
+        cmd = f'source ~/.bashrc && export PATH=$PATH:/home/yujun/.local/bin && cd ../ArchitectureBuilder && printf "y\\ny\\ny\\n" | q chat "{diagram_prompt}"'
         
         result = subprocess.run([
             'wsl', '-e', 'bash', '-c', cmd
