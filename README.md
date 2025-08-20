@@ -8,7 +8,7 @@ AWS 아키텍처 다이어그램을 자동으로 생성하는 Streamlit 애플�
 - **자동 다이어그램 생성**: Amazon Q CLI와 DiagramMCP를 사용한 자동 다이어그램 생성
 - **Gemini AI 챗봇**: 클라우드 아키텍처 관련 질문 답변
 - **크로스 플랫폼 지원**: Windows, Linux, macOS 지원
-
+ㄴ
 ## ⚙️ 설치 및 설정
 
 ### 1. 의존성 설치
