@@ -2,7 +2,31 @@
 UI 컴포넌트 모듈
 """
 import streamlit as st
+import re
 from config import SUPPORTED_PLATFORMS
+
+def extract_code_from_gemini_response(response):
+    """Gemini AI 응답에서 Python 코드 추출"""
+    
+    # Python 코드 블록 찾기 (```python ... ```)
+    if "```python" in response:
+        code_start = response.find("```python") + 9
+        code_end = response.find("```", code_start)
+        if code_end != -1:
+            return response[code_start:code_end].strip()
+    
+    # Python 코드 블록 찾기 (``` ... ```) - 언어 지정 없음
+    elif "```" in response:
+        code_start = response.find("```") + 3
+        code_end = response.find("```", code_start)
+        if code_end != -1:
+            code_content = response[code_start:code_end].strip()
+            # Python 코드인지 확인 (import, from, with 등 키워드 포함)
+            if any(keyword in code_content for keyword in ['import', 'from', 'with', 'def', 'class', 'Diagram']):
+                return code_content
+    
+    # 코드가 없는 경우
+    return None
 
 class UIComponents:
     """UI 컴포넌트들"""
@@ -66,7 +90,14 @@ class UIComponents:
         """코드 표시 섹션 렌더링 (expander 형태)"""
         if diagram_code:
             with st.expander("💻 생성된 Python 코드", expanded=False):
-                st.code(diagram_code, language="python")
+                # 코드 블록의 높이를 고정 (300px)
+                st.markdown(f"""
+                <div style="height: 700px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 5px; padding: 10px; background-color: #f8f9fa;">
+                    <pre style="margin: 0; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4;">
+{diagram_code}
+                    </pre>
+                </div>
+                """, unsafe_allow_html=True)
                 
                 col_download1, col_download2 = st.columns([1, 3])
                 with col_download1:
@@ -124,6 +155,12 @@ class UIComponents:
                     
                     # 어시스턴트 메시지 추가
                     chat_history.append({"role": "assistant", "content": response})
+                    
+                    # Gemini 응답에서 Python 코드 파싱하여 코드 블록에 표시
+                    parsed_code = extract_code_from_gemini_response(response)
+                    if parsed_code:
+                        st.session_state.diagram_code = parsed_code
+                        st.success("✅ Python 코드가 감지되어 코드 블록에 표시됩니다!")
             
             # 채팅 히스토리 초기화 버튼
             col_reset1, col_reset2 = st.columns([1, 4])

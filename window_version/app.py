@@ -44,29 +44,33 @@ def main():
     col_code, col_diagram = st.columns([1, 1])
     
     with col_code:
-        st.subheader("💻 코드 예시")
-        st.markdown("""
-        ```python
-        # AWS 아키텍처 다이어그램 생성 예시
-        from diagrams import Diagram
-        from diagrams.aws.compute import EC2, Lambda
-        from diagrams.aws.storage import S3
-        from diagrams.aws.network import VPC, ELB
+        st.subheader("💻 아키텍처 설계")
         
-        with Diagram("aws_architecture", show=False):
-            # 다이어그램 구성
-            vpc = VPC("VPC")
-            elb = ELB("Load Balancer")
-            ec2 = EC2("Web Server")
-            lambda_func = Lambda("Function")
-            s3_bucket = S3("Storage")
+        # Gemini AI 응답의 아키텍처 텍스트가 있으면 표시
+        if 'chat_history' in st.session_state and st.session_state.chat_history:
+            # 가장 최근 Gemini AI 응답에서 아키텍처 관련 텍스트 찾기
+            latest_response = None
+            for message in reversed(st.session_state.chat_history):
+                if message["role"] == "assistant":
+                    latest_response = message["content"]
+                    break
             
-            # 연결 관계
-            elb >> ec2
-            ec2 >> lambda_func
-            lambda_func >> s3_bucket
-        ```
-        """)
+            if latest_response:
+                # 아키텍처 관련 키워드가 포함된 응답인지 확인
+                architecture_keywords = ['아키텍처', 'architecture', 'AWS', '클라우드', 'cloud', '서비스', 'service', 'VPC', 'EC2', 'S3', 'Lambda']
+                if any(keyword in latest_response for keyword in architecture_keywords):
+                    st.markdown("**🤖 Gemini AI가 설계한 아키텍처:**")
+                    st.markdown(latest_response)
+                    
+                    # 코드가 포함된 경우 하이라이트
+                    if "```" in latest_response:
+                        st.success("✅ 코드 블록이 포함된 응답입니다!")
+                else:
+                    st.info("👈 Gemini AI와 아키텍처 설계에 대해 대화해보세요.")
+            else:
+                st.info("👈 Gemini AI와 아키텍처 설계에 대해 대화해보세요.")
+        else:
+            st.info("👈 Gemini AI와 아키텍처 설계에 대해 대화해보세요.")
     
     with col_diagram:
         st.subheader("🖼️ 다이어그램 예시")
