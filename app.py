@@ -2,6 +2,20 @@ import streamlit as st
 import subprocess
 import re
 from pathlib import Path
+import google.generativeai as genai
+from dotenv import load_dotenv
+import os
+
+# 환경 변수 로드
+load_dotenv()
+
+# Gemini API 설정
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel('gemini-2.0-flash')
+else:
+    model = None
 
 # 페이지 설정
 st.set_page_config(
@@ -101,6 +115,33 @@ def parse_amazon_q_response(response):
         result['description'] = desc_match.group(1).strip()
     
     return result
+
+def call_gemini_api(prompt, chat_history=None):
+    """Gemini API를 호출하여 응답 생성"""
+    try:
+        if not model:
+            return "❌ Gemini API 키가 설정되지 않았습니다. .env 파일에 GOOGLE_API_KEY를 추가해주세요."
+        
+        # 채팅 히스토리가 있으면 컨텍스트로 사용
+        if chat_history:
+            # 채팅 히스토리를 Gemini 형식으로 변환
+            chat = model.start_chat(history=[])
+            for message in chat_history[-10:]:  # 최근 10개 메시지만 사용
+                if message["role"] == "user":
+                    chat.send_message(message["content"])
+                else:
+                    # Gemini는 자동으로 응답을 기록하므로 사용자 메시지만 전송
+                    pass
+            
+            response = chat.send_message(prompt)
+        else:
+            # 단일 메시지 요청
+            response = model.generate_content(prompt)
+        
+        return response.text
+        
+    except Exception as e:
+        return f"❌ Gemini API 호출 중 오류가 발생했습니다: {str(e)}"
 
 def main():
     st.title("☁️ 클라우드 아키텍처 다이어그램 생성기")
@@ -213,6 +254,56 @@ def main():
             file_name="cloud_architecture.py",
             mime="text/plain"
         )
+
+    # Gemini 챗봇 토글 버튼
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("🤖 챗봇 열기" if not st.session_state.get('chat_open', False) else "❌ 챗봇 닫기"):
+            st.session_state.chat_open = not st.session_state.get('chat_open', False)
+            st.rerun()
+    
+    # 챗봇이 열려있을 때만 표시
+    if st.session_state.get('chat_open', False):
+        st.markdown("---")
+        st.header("🤖 Gemini AI 챗봇")
+        st.markdown("클라우드 아키텍처에 대해 질문하거나 대화해보세요.")
+        
+        # 챗봇 세션 상태 초기화
+        if 'chat_history' not in st.session_state:
+            st.session_state.chat_history = []
+        
+        # 챗봇 컨테이너
+        chat_container = st.container()
+        
+        with chat_container:
+            # 채팅 히스토리 표시
+            for message in st.session_state.chat_history:
+                if message["role"] == "user":
+                    st.chat_message("user").write(message["content"])
+                else:
+                    st.chat_message("assistant").write(message["content"])
+            
+            # 사용자 입력
+            if prompt := st.chat_input("질문을 입력하세요..."):
+                # 사용자 메시지 추가
+                st.session_state.chat_history.append({"role": "user", "content": prompt})
+                st.chat_message("user").write(prompt)
+                
+                # Gemini 응답 생성
+                with st.chat_message("assistant"):
+                    with st.spinner("Gemini가 응답을 생성하고 있습니다..."):
+                        response = call_gemini_api(prompt, st.session_state.chat_history)
+                        st.write(response)
+                
+                # 어시스턴트 메시지 추가
+                st.session_state.chat_history.append({"role": "assistant", "content": response})
+        
+        # 채팅 히스토리 초기화 버튼
+        col_reset1, col_reset2 = st.columns([1, 4])
+        with col_reset1:
+            if st.button("🗑️ 대화 기록 초기화"):
+                st.session_state.chat_history = []
+                st.rerun()
 
 if __name__ == "__main__":
     main()
