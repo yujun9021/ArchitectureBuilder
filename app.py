@@ -5,12 +5,16 @@ from pathlib import Path
 import google.generativeai as genai
 from dotenv import load_dotenv
 import os
+import platform
 
 # 환경 변수 로드
 load_dotenv()
 
-# Gemini API 설정
+# 환경변수 설정
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+AMAZON_Q_PATH = os.getenv('AMAZON_Q_PATH', 'q')  # Amazon Q CLI 경로
+
+# Gemini API 설정
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel('gemini-2.0-flash')
@@ -60,11 +64,40 @@ def call_amazon_q_cli(requirement_text):
 """
         
         # Amazon Q CLI 실행 (현재 디렉토리에서 실행)
-        cmd = f'source ~/.bashrc && export PATH=$PATH:/home/yujun/.local/bin && cd ../ArchitectureBuilder && printf "y\\ny\\ny\\n" | q chat "{diagram_prompt}"'
+        # 사용자 홈 디렉토리와 로컬 bin 경로를 동적으로 찾기
+        home_dir = os.path.expanduser("~")
+        local_bin = os.path.join(home_dir, ".local", "bin")
         
-        result = subprocess.run([
-            'wsl', '-e', 'bash', '-c', cmd
-        ], capture_output=True, text=True, timeout=120, encoding='utf-8')
+        # 플랫폼별 실행 방식 결정
+        if platform.system() == "Windows":
+            # Windows에서 WSL 사용 시
+            try:
+                # WSL이 설치되어 있는지 확인
+                wsl_check = subprocess.run(['wsl', '--version'], capture_output=True, text=True)
+                if wsl_check.returncode == 0:
+                    # WSL 사용
+                    cmd = f'source ~/.bashrc && export PATH=$PATH:{local_bin} && printf "y\\ny\\ny\\n" | {AMAZON_Q_PATH} chat "{diagram_prompt}"'
+                    result = subprocess.run([
+                        'wsl', '-e', 'bash', '-c', cmd
+                    ], capture_output=True, text=True, timeout=120, encoding='utf-8')
+                else:
+                    # WSL이 없으면 직접 실행 시도
+                    cmd = f'{AMAZON_Q_PATH} chat "{diagram_prompt}"'
+                    result = subprocess.run([
+                        'cmd', '/c', cmd
+                    ], capture_output=True, text=True, timeout=120, encoding='utf-8')
+            except FileNotFoundError:
+                # WSL 명령어를 찾을 수 없으면 직접 실행
+                cmd = f'{AMAZON_Q_PATH} chat "{diagram_prompt}"'
+                result = subprocess.run([
+                    'cmd', '/c', cmd
+                ], capture_output=True, text=True, timeout=120, encoding='utf-8')
+        else:
+            # Linux/Mac 사용 시
+            cmd = f'source ~/.bashrc && export PATH=$PATH:{local_bin} && printf "y\\ny\\ny\\n" | {AMAZON_Q_PATH} chat "{diagram_prompt}"'
+            result = subprocess.run([
+                'bash', '-c', cmd
+            ], capture_output=True, text=True, timeout=120, encoding='utf-8')
         
         # 디버깅 정보
         st.info(f"🔍 Return Code: {result.returncode}")
@@ -146,6 +179,30 @@ def call_gemini_api(prompt, chat_history=None):
 def main():
     st.title("☁️ 클라우드 아키텍처 다이어그램 생성기")
     st.markdown("Amazon Q와 DiagramMCP를 사용하여 클라우드 아키텍처 다이어그램을 생성합니다.")
+    
+    # 설정 안내
+    with st.expander("⚙️ 설정 안내"):
+        st.markdown("""
+        ### 환경 설정
+        `.env` 파일에 다음 설정을 추가하세요:
+        
+        ```bash
+        # Gemini API 키 (필수)
+        GOOGLE_API_KEY=your_gemini_api_key_here
+        
+        # Amazon Q CLI 경로 (선택사항, 기본값: 'q')
+        AMAZON_Q_PATH=/path/to/q
+        ```
+        
+        ### Amazon Q CLI 설치
+        - **Windows**: `winget install Amazon.AmazonQ` 또는 [공식 사이트](https://aws.amazon.com/ko/amazon-q/)에서 다운로드
+        - **Linux/Mac**: `curl -fsSL https://aws.amazon.com/ko/amazon-q/install.sh | sh`
+        
+        ### 지원 플랫폼
+        - ✅ Windows (WSL 또는 네이티브)
+        - ✅ Linux
+        - ✅ macOS
+        """)
     
     # 메인 컨텐츠
     col1, col2 = st.columns([1, 1])
