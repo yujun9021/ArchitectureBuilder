@@ -138,22 +138,30 @@ def main():
                         if parsed_response['description']:
                             st.info(f"📝 아키텍처 설명: {parsed_response['description']}")
                         
-                        # 다이어그램 파일 찾기
+                        # 최적화된 다이어그램 파일 찾기
+                        diagram_found = False
+                        
+                        # 1단계: 파싱된 파일명으로 직접 검색
                         if parsed_response['filename']:
                             target_file, exists = diagram_manager.find_diagram_file(parsed_response['filename'])
-                            
                             if exists:
                                 st.success("✅ 다이어그램 생성 완료")
                                 st.session_state.diagram_image = str(target_file)
-                            else:
-                                st.warning(f"⚠️ 파일을 찾을 수 없습니다: {parsed_response['filename']}")
-                                diagram_manager.display_debug_info(parsed_response['filename'])
-                        else:
-                            # 폴더 내 최신 PNG 파일 찾기
+                                diagram_found = True
+                        
+                        # 2단계: 파일을 찾지 못한 경우 최신 파일 검색
+                        if not diagram_found:
                             latest_file = diagram_manager.find_latest_diagram()
                             if latest_file:
-                                st.success("✅ 다이어그램 생성 완료")
+                                st.success("✅ 다이어그램 생성 완료 (최신 파일 사용)")
                                 st.session_state.diagram_image = str(latest_file)
+                                diagram_found = True
+                        
+                        # 3단계: 여전히 찾지 못한 경우 디버그 정보 표시
+                        if not diagram_found:
+                            st.warning("⚠️ 다이어그램 파일을 찾을 수 없습니다.")
+                            if parsed_response['filename']:
+                                diagram_manager.display_debug_info(parsed_response['filename'])
                             else:
                                 st.error("❌ 다이어그램 파일을 찾을 수 없습니다.")
                         

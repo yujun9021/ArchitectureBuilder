@@ -45,7 +45,7 @@ class GeminiClient:
 
 **응답 형식:**
 - 아키텍처 요청 시 ```tree 코드 블록으로 트리 구조를 출력합니다
-- 간단한 요청에는 간단한 아키텍처로 응답합니다
+- 사용자의 요청을 그대로 트리형태의 아키텍처로로 생성합니다 
 - **중요**: 아키텍처를 출력할 때는 반드시 완성된 하나의 트리만 출력합니다
 - 여러 개의 트리나 불완전한 트리를 출력하지 마세요
 
@@ -55,39 +55,7 @@ class GeminiClient:
 - "설치" 요청 시: 기존 아키텍처에 새로운 구성요소를 추가
 - 수량 계산을 명확히 하고 오류를 방지합니다
 
-**트리 형태 아키텍처 예시:**
-```tree
-REGION: ap-northeast-2 (Seoul)
-└── [Regional Service] S3 Bucket  ──(정적 파일 저장; VPC 바깥에 존재)
-
-VPC: 10.0.0.0/16
-├── Internet Gateway (IGW)  ──(외부에서 VPC로 진입)
-├── Application Load Balancer (ALB)  ──(퍼블릭 서브넷 A/C에 연결됨; 들어오는 트래픽 분산)
-│
-├─ AZ: ap-northeast-2a
-│  ├─ Public Subnet A (10.0.1.0/24)
-│  │   ├─ [ALB Attachment]
-│  │   ├─ NAT Gateway A
-│  │   └─ Web EC2 (ASG) : web-a-1, web-a-2  ──(퍼블릭; ALB가 타깃으로 트래픽 전달)
-│  │
-│  ├─ Private-App Subnet A (10.0.11.0/24)
-│  │   └─ App EC2 (ASG) : app-a-1, app-a-2  ──(프라이빗; Web에서 내부 호출)
-│  │
-│  └─ Private-DB Subnet A (10.0.21.0/24)
-│      └─ RDS for PostgreSQL (Primary)  ──(Multi-AZ의 주 인스턴스)
-│
-└─ AZ: ap-northeast-2c
-   ├─ Public Subnet C (10.0.2.0/24)
-   │   ├─ [ALB Attachment]
-   │   ├─ NAT Gateway C
-   │   └─ Web EC2 (ASG) : web-c-1, web-c-2
-   │
-   ├─ Private-App Subnet C (10.0.12.0/24)
-   │   └─ App EC2 (ASG) : app-c-1, app-c-2
-   │
-   └─ Private-DB Subnet C (10.0.22.0/24)
-       └─ RDS for PostgreSQL (Standby)  ──(Multi-AZ 대기 인스턴스; Primary와 동기화)
-```"""
+"""
 
             # 현재 저장된 아키텍처가 있으면 시스템 프롬프트에 추가
             if self.current_architecture:
