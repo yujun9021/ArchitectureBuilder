@@ -47,12 +47,16 @@ class DiagramManager:
             st.info(f"🔍 찾는 파일: {target_file}")
             st.info(f"🔍 파일 존재 여부: {exists}")
             st.info(f"🔍 현재 작업 디렉토리: {Path.cwd()}")
+            st.info(f"🔍 다이어그램 폴더: {self.diagram_folder}")
+            st.info(f"🔍 다이어그램 폴더 존재 여부: {self.diagram_folder.exists()}")
             
             if not exists:
                 # 폴더 내용 확인
                 folder_contents = self.get_folder_contents()
                 if folder_contents:
                     st.info(f"🔍 폴더 내용: {folder_contents}")
+                else:
+                    st.warning("⚠️ 다이어그램 폴더가 비어있습니다.")
                 
                 # 현재 디렉토리에서 PNG 파일 찾기
                 current_png_files = self.get_current_directory_png_files()
@@ -63,3 +67,13 @@ class DiagramManager:
                 parent_png_files = self.get_parent_directory_png_files()
                 if parent_png_files:
                     st.info(f"🔍 상위 디렉토리 PNG 파일들: {parent_png_files}")
+                
+                # 절대 경로로도 확인
+                absolute_target = Path.cwd() / 'generated-diagrams' / filename
+                st.info(f"🔍 절대 경로 파일 존재 여부: {absolute_target.exists()}")
+                
+                # 전체 시스템에서 PNG 파일 검색 (최근 5개)
+                all_png_files = list(Path.cwd().rglob('*.png'))
+                if all_png_files:
+                    recent_files = sorted(all_png_files, key=lambda x: x.stat().st_mtime, reverse=True)[:5]
+                    st.info(f"🔍 최근 PNG 파일들: {[str(f) for f in recent_files]}")

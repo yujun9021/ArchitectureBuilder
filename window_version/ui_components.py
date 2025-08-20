@@ -123,24 +123,23 @@ class UIComponents:
             st.rerun()
     
     @staticmethod
-    def render_chatbot(chat_history, gemini_client, selected_security=None):
+    def render_chatbot(chat_history, gemini_client):
         """챗봇 렌더링"""
         if st.session_state.get('chat_open', False):
             st.markdown("---")
             st.header("🤖 클라우드 아키텍처 설계 전문가")
             st.markdown("""
-            **역할**: 클라우드 아키텍처 설계 전문가로서 사용자와 소통하며 완성된 아키텍처를 만들어갑니다.
+            **역할**: 클라우드 아키텍처 설계 전문가입니다.
             
             **작동 방식**:
-            - 사용자의 요청이 모호하면 추가 질문으로 명확히 합니다
-            - 변경점이 명확할 때만 클라우드 아키텍처를 출력합니다
-            - 단계별로 아키텍처를 발전시켜 나갑니다
+            - 사용자의 요청에 따라 클라우드 아키텍처를 트리 형태로 설계합니다
+            - AWS, Azure, GCP 등 주요 클라우드 플랫폼의 서비스를 활용합니다
             - 이전에 설계한 아키텍처를 기억하고 수정 요청에 참조합니다
             """)
             
-            # 저장된 아키텍처 개수 표시 (디버그용)
-            if hasattr(gemini_client, 'architectures'):
-                st.caption(f"💾 저장된 아키텍처: {len(gemini_client.architectures)}개")
+            # 저장된 아키텍처 상태 표시
+            if gemini_client.get_current_architecture():
+                st.caption("💾 아키텍처가 저장되어 있습니다")
             
             # 챗봇 컨테이너
             chat_container = st.container()
@@ -162,14 +161,14 @@ class UIComponents:
                     # Gemini 응답 생성
                     with st.chat_message("assistant"):
                         with st.spinner("Gemini가 응답을 생성하고 있습니다..."):
-                            response = gemini_client.generate_response(prompt, chat_history, selected_security)
+                            response = gemini_client.generate_response(prompt, chat_history)
                             st.write(response)
                     
                     # 어시스턴트 메시지 추가
                     chat_history.append({"role": "assistant", "content": response})
                     
                     # 응답에서 아키텍처 추출 및 저장
-                    if gemini_client.extract_and_store_architecture(response):
+                    if gemini_client.save_architecture(response):
                         st.success("✅ 아키텍처가 저장되었습니다!")
                     
                     # Gemini 응답에서 Python 코드 파싱하여 코드 블록에 표시
@@ -183,5 +182,5 @@ class UIComponents:
             with col_reset1:
                 if st.button("🗑️ 대화 기록 초기화"):
                     chat_history.clear()
-                    gemini_client.clear_architectures()  # 저장된 아키텍처도 초기화
+                    gemini_client.clear_architecture()  # 저장된 아키텍처도 초기화
                     st.rerun()
