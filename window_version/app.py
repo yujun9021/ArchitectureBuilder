@@ -234,14 +234,8 @@ def main():
                     if tree_blocks:
                         st.markdown("**🌳 트리 형태 아키텍처:**")
                         for i, tree_block in enumerate(tree_blocks):
-                            # 트리 블록의 높이를 고정 (400px)
-                            st.markdown(f"""
-                            <div style="height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 5px; padding: 10px; background-color: #f0f8ff;">
-                                <pre style="margin: 0; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.3; color: #2c3e50;">
-{tree_block}
-                                </pre>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            # 트리 블록을 Streamlit의 code 블록으로 표시
+                            st.code(tree_block, language="text", line_numbers=False)
                             if i < len(tree_blocks) - 1:  # 마지막이 아니면 구분선 추가
                                 st.divider()
                     else:

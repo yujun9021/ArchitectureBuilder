@@ -10,6 +10,7 @@ class GeminiClient:
     
     def __init__(self):
         self.model = None
+        self.architectures = []  # 아키텍처 저장소
         self.initialize_gemini()
     
     def initialize_gemini(self):
@@ -59,6 +60,12 @@ class GeminiClient:
    - 아키텍처 설명과 함께 제공합니다
 
 4. **지속적 개선**: 사용자 피드백을 받아 아키텍처를 지속적으로 개선합니다
+
+**아키텍처 기억 및 수정:**
+- 이전에 설계한 아키텍처를 항상 기억하고 참조합니다
+- 사용자가 "수정해줘", "변경해줘" 등의 요청을 할 때 이전 아키텍처를 기반으로 수정합니다
+- 아키텍처 수정 시 "기존 아키텍처를 기반으로 다음과 같이 수정했습니다:" 형태로 명확히 표시합니다
+- 트리 형태 아키텍처를 수정할 때는 전체 아키텍처를 다시 출력합니다
 
 **응답 형식:**
 - 일반 대화: 자연스러운 대화로 진행
@@ -126,6 +133,11 @@ VPC: 10.0.0.0/16
                 security_context += "\n**중요**: 🏗️ 표시된 요소들은 아키텍처 다이어그램에 반영하고, ⚙️ 표시된 요소들은 별도 설정으로 적용해주세요."
                 system_prompt += security_context
 
+            # 저장된 아키텍처 정보를 시스템 프롬프트에 추가
+            architecture_context = self.get_architecture_context()
+            if architecture_context:
+                system_prompt += architecture_context
+
             # 채팅 히스토리가 있으면 컨텍스트로 사용
             if chat_history:
                 # 채팅 히스토리를 Gemini 형식으로 변환
@@ -134,10 +146,13 @@ VPC: 10.0.0.0/16
                 # 첫 번째 메시지로 시스템 프롬프트 전송
                 chat.send_message(system_prompt)
                 
-                for message in chat_history[-10:]:  # 최근 10개 메시지만 사용
+                # 전체 대화 기록을 전송 (최근 20개 메시지로 확장)
+                for message in chat_history[-20:]:  # 최근 20개 메시지로 확장
                     if message["role"] == "user":
                         chat.send_message(message["content"])
-                    # Gemini는 자동으로 응답을 기록하므로 사용자 메시지만 전송
+                    elif message["role"] == "assistant":
+                        # 어시스턴트 응답도 명시적으로 전송하여 컨텍스트 유지
+                        chat.send_message(message["content"])
                 
                 response = chat.send_message(prompt)
             else:
@@ -149,6 +164,54 @@ VPC: 10.0.0.0/16
             
         except Exception as e:
             return f"❌ Gemini API 호출 중 오류가 발생했습니다: {str(e)}"
+    
+    def extract_and_store_architecture(self, response_text):
+        """응답에서 아키텍처를 추출하고 저장"""
+        import re
+        from datetime import datetime
+        
+        # 트리 형태 아키텍처 추출
+        tree_pattern = r'```tree\s*\n(.*?)\n```'
+        tree_blocks = re.findall(tree_pattern, response_text, re.DOTALL)
+        
+        if tree_blocks:
+            for tree_block in tree_blocks:
+                tree_block = tree_block.strip()
+                if tree_block:  # 빈 블록이 아닌 경우만 저장
+                    architecture_info = {
+                        'content': tree_block,
+                        'timestamp': datetime.now().isoformat(),
+                        'type': 'tree'
+                    }
+                    self.architectures.append(architecture_info)
+            
+            # 최대 5개까지만 유지 (메모리 효율성)
+            if len(self.architectures) > 5:
+                self.architectures = self.architectures[-5:]
+            
+            return True
+        return False
+    
+    def get_architecture_context(self):
+        """저장된 아키텍처를 시스템 프롬프트용 컨텍스트로 변환"""
+        if not self.architectures:
+            return ""
+        
+        context = "\n\n**📋 이전에 설계된 아키텍처 정보:**\n"
+        context += "다음은 이전 대화에서 설계한 아키텍처입니다. 이를 참조하여 수정 요청에 응답하세요:\n\n"
+        
+        # 최근 2개 아키텍처만 사용 (시스템 프롬프트 길이 제한 고려)
+        recent_architectures = self.architectures[-2:]
+        
+        for i, arch in enumerate(recent_architectures, 1):
+            context += f"**아키텍처 {i} (생성: {arch['timestamp'][:19]}):**\n"
+            context += f"```tree\n{arch['content']}\n```\n\n"
+        
+        return context
+    
+    def clear_architectures(self):
+        """저장된 아키텍처 초기화"""
+        self.architectures.clear()
     
     def is_ready(self):
         """Gemini API가 준비되었는지 확인"""
