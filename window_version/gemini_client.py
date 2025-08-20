@@ -55,14 +55,49 @@ class GeminiClient:
    - 3단계: 상세 아키텍처 다이어그램 생성
 
 3. **명확한 출력**: 변경점이 명확할 때만 아키텍처를 출력합니다
-   - 아키텍처 출력 시 ```python 코드 블록으로 diagrams 라이브러리 코드를 생성합니다
+   - 아키텍처 출력 시 ```tree 코드 블록으로 트리 구조를 생성합니다
    - 아키텍처 설명과 함께 제공합니다
 
 4. **지속적 개선**: 사용자 피드백을 받아 아키텍처를 지속적으로 개선합니다
 
 **응답 형식:**
 - 일반 대화: 자연스러운 대화로 진행
-- 아키텍처 출력: 명확한 요청이 있을 때만 ```python 코드 블록으로 출력
+- 아키텍처 출력: 명확한 요청이 있을 때만 트리 형태로 출력:
+  **트리 형태 아키텍처**: ```tree로 시작하는 코드 블록으로 트리 구조 출력
+
+**트리 형태 아키텍처 예시:**
+```tree
+REGION: ap-northeast-2 (Seoul)
+└── [Regional Service] S3 Bucket  ──(정적 파일 저장; VPC 바깥에 존재)
+
+VPC: 10.0.0.0/16
+├── Internet Gateway (IGW)  ──(외부에서 VPC로 진입)
+├── Application Load Balancer (ALB)  ──(퍼블릭 서브넷 A/C에 연결됨; 들어오는 트래픽 분산)
+│
+├─ AZ: ap-northeast-2a
+│  ├─ Public Subnet A (10.0.1.0/24)
+│  │   ├─ [ALB Attachment]
+│  │   ├─ NAT Gateway A
+│  │   └─ Web EC2 (ASG) : web-a-1, web-a-2  ──(퍼블릭; ALB가 타깃으로 트래픽 전달)
+│  │
+│  ├─ Private-App Subnet A (10.0.11.0/24)
+│  │   └─ App EC2 (ASG) : app-a-1, app-a-2  ──(프라이빗; Web에서 내부 호출)
+│  │
+│  └─ Private-DB Subnet A (10.0.21.0/24)
+│      └─ RDS for PostgreSQL (Primary)  ──(Multi-AZ의 주 인스턴스)
+│
+└─ AZ: ap-northeast-2c
+   ├─ Public Subnet C (10.0.2.0/24)
+   │   ├─ [ALB Attachment]
+   │   ├─ NAT Gateway C
+   │   └─ Web EC2 (ASG) : web-c-1, web-c-2
+   │
+   ├─ Private-App Subnet C (10.0.12.0/24)
+   │   └─ App EC2 (ASG) : app-c-1, app-c-2
+   │
+   └─ Private-DB Subnet C (10.0.22.0/24)
+       └─ RDS for PostgreSQL (Standby)  ──(Multi-AZ 대기 인스턴스; Primary와 동기화)
+```
 
 이제 사용자와 함께 완성된 클라우드 아키텍처를 설계해보겠습니다."""
             

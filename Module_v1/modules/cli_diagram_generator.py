@@ -9,6 +9,7 @@ import os
 import tempfile
 import time
 import threading
+import platform
 from typing import Dict, Any, Optional, Tuple
 import streamlit as st
 
@@ -30,11 +31,33 @@ class CLIDiagramGenerator:
             os.makedirs(self.diagrams_dir)
     
     def _check_cli_availability(self) -> bool:
-        """Amazon Q CLI 사용 가능 여부 확인"""
+        """Amazon Q CLI 사용 가능 여부 확인 (WSL 지원)"""
         try:
-            result = subprocess.run(['q', '--version'], 
-                                  capture_output=True, text=True, timeout=5)
-            return result.returncode == 0
+            if platform.system() == "Windows":
+                # Windows에서 WSL 사용 시도
+                try:
+                    # WSL이 설치되어 있는지 확인
+                    wsl_check = subprocess.run(['wsl', '--version'], capture_output=True, text=True)
+                    if wsl_check.returncode == 0:
+                        # WSL에서 Amazon Q CLI 확인
+                        result = subprocess.run(['wsl', '-e', 'q', '--version'], 
+                                              capture_output=True, text=True, timeout=5)
+                        return result.returncode == 0
+                    else:
+                        # WSL이 없으면 Windows에서 직접 시도
+                        result = subprocess.run(['q', '--version'], 
+                                              capture_output=True, text=True, timeout=5)
+                        return result.returncode == 0
+                except FileNotFoundError:
+                    # WSL 명령어를 찾을 수 없으면 Windows에서 직접 시도
+                    result = subprocess.run(['q', '--version'], 
+                                          capture_output=True, text=True, timeout=5)
+                    return result.returncode == 0
+            else:
+                # Linux/Mac에서는 직접 실행
+                result = subprocess.run(['q', '--version'], 
+                                      capture_output=True, text=True, timeout=5)
+                return result.returncode == 0
         except Exception:
             return False
     
@@ -52,20 +75,75 @@ class CLIDiagramGenerator:
             }
         
         try:
-            result = subprocess.run(['q', '--version'], 
-                                  capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                return {
-                    "available": True,
-                    "version": result.stdout.strip() + " (진짜 CLI + 진행상황 표시)",
-                    "error": None
-                }
+            if platform.system() == "Windows":
+                # Windows에서 WSL 사용 시도
+                try:
+                    # WSL이 설치되어 있는지 확인
+                    wsl_check = subprocess.run(['wsl', '--version'], capture_output=True, text=True)
+                    if wsl_check.returncode == 0:
+                        # WSL에서 Amazon Q CLI 확인
+                        result = subprocess.run(['wsl', '-e', 'q', '--version'], 
+                                              capture_output=True, text=True, timeout=5)
+                        if result.returncode == 0:
+                            return {
+                                "available": True,
+                                "version": result.stdout.strip() + " (WSL + 진짜 CLI + 진행상황 표시)",
+                                "error": None
+                            }
+                        else:
+                            return {
+                                "available": False,
+                                "version": None,
+                                "error": f"WSL CLI 실행 오류: {result.stderr}"
+                            }
+                    else:
+                        # WSL이 없으면 Windows에서 직접 시도
+                        result = subprocess.run(['q', '--version'], 
+                                              capture_output=True, text=True, timeout=5)
+                        if result.returncode == 0:
+                            return {
+                                "available": True,
+                                "version": result.stdout.strip() + " (Windows + 진짜 CLI + 진행상황 표시)",
+                                "error": None
+                            }
+                        else:
+                            return {
+                                "available": False,
+                                "version": None,
+                                "error": f"Windows CLI 실행 오류: {result.stderr}"
+                            }
+                except FileNotFoundError:
+                    # WSL 명령어를 찾을 수 없으면 Windows에서 직접 시도
+                    result = subprocess.run(['q', '--version'], 
+                                          capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        return {
+                            "available": True,
+                            "version": result.stdout.strip() + " (Windows + 진짜 CLI + 진행상황 표시)",
+                            "error": None
+                        }
+                    else:
+                        return {
+                            "available": False,
+                            "version": None,
+                            "error": f"Windows CLI 실행 오류: {result.stderr}"
+                        }
             else:
-                return {
-                    "available": False,
-                    "version": None,
-                    "error": f"CLI 실행 오류: {result.stderr}"
-                }
+                # Linux/Mac에서는 직접 실행
+                result = subprocess.run(['q', '--version'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    return {
+                        "available": True,
+                        "version": result.stdout.strip() + " (Linux/Mac + 진짜 CLI + 진행상황 표시)",
+                        "error": None
+                    }
+                else:
+                    return {
+                        "available": False,
+                        "version": None,
+                        "error": f"Linux/Mac CLI 실행 오류: {result.stderr}"
+                    }
         except Exception as e:
             return {
                 "available": False,
@@ -249,15 +327,51 @@ Generate the complete Python code now:"""
                 status_text.text("🚀 Amazon Q CLI 프로세스 시작...")
                 progress_bar.progress(50)
                 
-                # Amazon Q CLI 실행 (타임아웃 있음 - 실패 시 직접 생성)
-                process = subprocess.Popen(
-                    ['q', 'chat'],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    cwd=self.workspace_dir
-                )
+                # Amazon Q CLI 실행 (WSL 지원)
+                if platform.system() == "Windows":
+                    try:
+                        # WSL이 설치되어 있는지 확인
+                        wsl_check = subprocess.run(['wsl', '--version'], capture_output=True, text=True)
+                        if wsl_check.returncode == 0:
+                            # WSL에서 Amazon Q CLI 실행
+                            process = subprocess.Popen(
+                                ['wsl', '-e', 'q', 'chat'],
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True,
+                                cwd=self.workspace_dir
+                            )
+                        else:
+                            # WSL이 없으면 Windows에서 직접 실행
+                            process = subprocess.Popen(
+                                ['q', 'chat'],
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True,
+                                cwd=self.workspace_dir
+                            )
+                    except FileNotFoundError:
+                        # WSL 명령어를 찾을 수 없으면 Windows에서 직접 실행
+                        process = subprocess.Popen(
+                            ['q', 'chat'],
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            cwd=self.workspace_dir
+                        )
+                else:
+                    # Linux/Mac에서는 직접 실행
+                    process = subprocess.Popen(
+                        ['q', 'chat'],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        cwd=self.workspace_dir
+                    )
                 
                 # 6단계: 프롬프트 전송 (60%)
                 status_text.text("📤 Amazon Q에게 프롬프트 전송 중...")
@@ -1039,22 +1153,77 @@ print("✅ Amazon Q Fast VPC Architecture Generated")
             return None
     
     def test_cli(self) -> Dict[str, Any]:
-        """CLI 테스트"""
+        """CLI 테스트 (WSL 지원)"""
         try:
-            result = subprocess.run(['q', '--version'], 
-                                  capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                return {
-                    "success": True,
-                    "version": result.stdout.strip(),
-                    "message": "Amazon Q CLI 정상 작동 (진짜 CLI + 진행상황 표시)"
-                }
+            if platform.system() == "Windows":
+                # Windows에서 WSL 사용 시도
+                try:
+                    # WSL이 설치되어 있는지 확인
+                    wsl_check = subprocess.run(['wsl', '--version'], capture_output=True, text=True)
+                    if wsl_check.returncode == 0:
+                        # WSL에서 Amazon Q CLI 테스트
+                        result = subprocess.run(['wsl', '-e', 'q', '--version'], 
+                                              capture_output=True, text=True, timeout=5)
+                        if result.returncode == 0:
+                            return {
+                                "success": True,
+                                "version": result.stdout.strip(),
+                                "message": "Amazon Q CLI 정상 작동 (WSL + 진짜 CLI + 진행상황 표시)"
+                            }
+                        else:
+                            return {
+                                "success": False,
+                                "version": None,
+                                "message": f"WSL CLI 실행 실패: {result.stderr}"
+                            }
+                    else:
+                        # WSL이 없으면 Windows에서 직접 테스트
+                        result = subprocess.run(['q', '--version'], 
+                                              capture_output=True, text=True, timeout=5)
+                        if result.returncode == 0:
+                            return {
+                                "success": True,
+                                "version": result.stdout.strip(),
+                                "message": "Amazon Q CLI 정상 작동 (Windows + 진짜 CLI + 진행상황 표시)"
+                            }
+                        else:
+                            return {
+                                "success": False,
+                                "version": None,
+                                "message": f"Windows CLI 실행 실패: {result.stderr}"
+                            }
+                except FileNotFoundError:
+                    # WSL 명령어를 찾을 수 없으면 Windows에서 직접 테스트
+                    result = subprocess.run(['q', '--version'], 
+                                          capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        return {
+                            "success": True,
+                            "version": result.stdout.strip(),
+                            "message": "Amazon Q CLI 정상 작동 (Windows + 진짜 CLI + 진행상황 표시)"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "version": None,
+                            "message": f"Windows CLI 실행 실패: {result.stderr}"
+                        }
             else:
-                return {
-                    "success": False,
-                    "version": None,
-                    "message": f"CLI 실행 실패: {result.stderr}"
-                }
+                # Linux/Mac에서는 직접 테스트
+                result = subprocess.run(['q', '--version'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    return {
+                        "success": True,
+                        "version": result.stdout.strip(),
+                        "message": "Amazon Q CLI 정상 작동 (Linux/Mac + 진짜 CLI + 진행상황 표시)"
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "version": None,
+                        "message": f"Linux/Mac CLI 실행 실패: {result.stderr}"
+                    }
         except Exception as e:
             return {
                 "success": False,
@@ -1074,15 +1243,51 @@ print("✅ Amazon Q Fast VPC Architecture Generated")
             # 진행상황 없이 빠른 테스트
             optimized_prompt = self._create_optimized_cli_prompt(test_data)
             
-            # 간단한 CLI 테스트
-            process = subprocess.Popen(
-                ['q', 'chat'],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=self.workspace_dir
-            )
+            # 간단한 CLI 테스트 (WSL 지원)
+            if platform.system() == "Windows":
+                try:
+                    # WSL이 설치되어 있는지 확인
+                    wsl_check = subprocess.run(['wsl', '--version'], capture_output=True, text=True)
+                    if wsl_check.returncode == 0:
+                        # WSL에서 Amazon Q CLI 테스트
+                        process = subprocess.Popen(
+                            ['wsl', '-e', 'q', 'chat'],
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            cwd=self.workspace_dir
+                        )
+                    else:
+                        # WSL이 없으면 Windows에서 직접 테스트
+                        process = subprocess.Popen(
+                            ['q', 'chat'],
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            cwd=self.workspace_dir
+                        )
+                except FileNotFoundError:
+                    # WSL 명령어를 찾을 수 없으면 Windows에서 직접 테스트
+                    process = subprocess.Popen(
+                        ['q', 'chat'],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        cwd=self.workspace_dir
+                    )
+            else:
+                # Linux/Mac에서는 직접 테스트
+                process = subprocess.Popen(
+                    ['q', 'chat'],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    cwd=self.workspace_dir
+                )
             
             stdout, stderr = process.communicate(input="Hello Amazon Q\\n/quit\\n", timeout=15)
             

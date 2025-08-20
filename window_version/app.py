@@ -23,11 +23,24 @@ def extract_code_blocks(response):
     import re
     
     # 코드 블록 패턴 찾기 (```python 또는 ``` 으로 시작하고 ``` 으로 끝나는 부분)
-    code_pattern = r'```(?:python)?\s*\n(.*?)\n```'
+    code_pattern = r'```(?:python|tree)?\s*\n(.*?)\n```'
     matches = re.findall(code_pattern, response, re.DOTALL)
     
     # 추출된 코드 블록들 반환
     return [match.strip() for match in matches if match.strip()]
+
+def extract_tree_architecture(response):
+    """응답에서 트리 형태의 아키텍처만 추출"""
+    import re
+    
+    # 트리 블록 패턴 찾기 (```tree로 시작하고 ``` 으로 끝나는 부분)
+    tree_pattern = r'```tree\s*\n(.*?)\n```'
+    matches = re.findall(tree_pattern, response, re.DOTALL)
+    
+    # 추출된 트리 블록들 반환
+    return [match.strip() for match in matches if match.strip()]
+
+
 
 def get_security_requirements():
     """보안 요구사항 체크박스 렌더링 및 선택된 항목 반환"""
@@ -214,24 +227,25 @@ def main():
                 # 아키텍처 관련 키워드가 포함된 응답인지 확인
                 architecture_keywords = ['아키텍처', 'architecture', 'AWS', '클라우드', 'cloud', '서비스', 'service', 'VPC', 'EC2', 'S3', 'Lambda']
                 if any(keyword in latest_response for keyword in architecture_keywords):
-                    # 코드 블록만 추출
-                    code_blocks = extract_code_blocks(latest_response)
+                    # 트리 형태 아키텍처만 추출
+                    tree_blocks = extract_tree_architecture(latest_response)
                     
-                    if code_blocks:
-                        st.markdown("**🤖 Gemini AI가 설계한 아키텍처 코드:**")
-                        for i, code_block in enumerate(code_blocks):
-                            # 코드 블록의 높이를 고정 (400px)
+                    # 트리 형태 아키텍처 표시
+                    if tree_blocks:
+                        st.markdown("**🌳 트리 형태 아키텍처:**")
+                        for i, tree_block in enumerate(tree_blocks):
+                            # 트리 블록의 높이를 고정 (400px)
                             st.markdown(f"""
-                            <div style="height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 5px; padding: 10px; background-color: #f8f9fa;">
-                                <pre style="margin: 0; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4;">
-{code_block}
+                            <div style="height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 5px; padding: 10px; background-color: #f0f8ff;">
+                                <pre style="margin: 0; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.3; color: #2c3e50;">
+{tree_block}
                                 </pre>
                             </div>
                             """, unsafe_allow_html=True)
-                            if i < len(code_blocks) - 1:  # 마지막이 아니면 구분선 추가
+                            if i < len(tree_blocks) - 1:  # 마지막이 아니면 구분선 추가
                                 st.divider()
                     else:
-                        st.info("👈 Gemini AI 응답에 코드 블록이 없습니다.")
+                        st.info("👈 Gemini AI 응답에 트리 형태 아키텍처가 없습니다.")
                 else:
                     st.info("👈 Gemini AI와 아키텍처 설계에 대해 대화해보세요.")
             else:
