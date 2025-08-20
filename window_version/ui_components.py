@@ -123,12 +123,19 @@ class UIComponents:
             st.rerun()
     
     @staticmethod
-    def render_chatbot(chat_history, gemini_client):
+    def render_chatbot(chat_history, gemini_client, selected_security=None):
         """챗봇 렌더링"""
         if st.session_state.get('chat_open', False):
             st.markdown("---")
-            st.header("🤖 Gemini AI 챗봇")
-            st.markdown("클라우드 아키텍처에 대해 질문하거나 대화해보세요.")
+            st.header("🤖 클라우드 아키텍처 설계 전문가")
+            st.markdown("""
+            **역할**: 클라우드 아키텍처 설계 전문가로서 사용자와 소통하며 완성된 아키텍처를 만들어갑니다.
+            
+            **작동 방식**:
+            - 사용자의 요청이 모호하면 추가 질문으로 명확히 합니다
+            - 변경점이 명확할 때만 클라우드 아키텍처를 출력합니다
+            - 단계별로 아키텍처를 발전시켜 나갑니다
+            """)
             
             # 챗봇 컨테이너
             chat_container = st.container()
@@ -150,7 +157,7 @@ class UIComponents:
                     # Gemini 응답 생성
                     with st.chat_message("assistant"):
                         with st.spinner("Gemini가 응답을 생성하고 있습니다..."):
-                            response = gemini_client.generate_response(prompt, chat_history)
+                            response = gemini_client.generate_response(prompt, chat_history, selected_security)
                             st.write(response)
                     
                     # 어시스턴트 메시지 추가
