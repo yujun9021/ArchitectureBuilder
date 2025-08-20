@@ -62,10 +62,10 @@ class DiagramGeneratorApp:
         
         # 상태 정보 표시
         st.session_state.ui_components.render_status_info(
-            gemini_ready=st.session_state.gemini_handler.is_ready(),
-            cli_available=st.session_state.cli_generator.is_available(),
-            cli_status=st.session_state.cli_generator.get_status()
-        )
+    gemini_ready=st.session_state.gemini_handler.is_ready(),
+    cli_status=st.session_state.cli_generator.get_status()
+    )
+
         
         # 메인 입력 및 처리
         self.render_main_interface()
