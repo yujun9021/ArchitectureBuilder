@@ -4,6 +4,7 @@ Streamlit UI 관련 컴포넌트들
 """
 
 import streamlit as st
+import os
 import json
 import pyperclip
 from datetime import datetime
@@ -20,7 +21,7 @@ class UIComponents:
         st.markdown("**Gemini + Amazon Q CLI (실제 연동)**로 자연어를 JSON으로 구조화하고 실제 Amazon Q CLI가 다이어그램을 생성합니다.")
     
     @staticmethod
-    def render_system_status(gemini_ready: bool, cli_status: Dict[str, Any]):
+    def render_status_info(gemini_ready: bool, cli_status: Dict[str, Any]):
         """시스템 상태 표시"""
         col1, col2, col3 = st.columns(3)
         
@@ -41,6 +42,39 @@ class UIComponents:
         with col3:
             st.info("🔄 CLI 우선, 실패 시 안전한 대체")
     
+    @staticmethod
+    def render_json_result(json_data: Dict[str, Any]):
+        """JSON 결과 표시"""
+        st.header("📋 JSON 결과")
+        st.json(json_data, expanded=False)
+
+        # 복사 버튼도 함께 제공
+        if st.button("📋 JSON 복사"):
+            try:
+                import pyperclip, json
+                pyperclip.copy(json.dumps(json_data, indent=2, ensure_ascii=False))
+                st.success("JSON이 클립보드에 복사되었습니다!")
+            except:
+                st.warning("클립보드 복사에 실패했습니다.")
+
+    @staticmethod
+    def render_latest_diagram(diagram_path: str):
+        """마지막 생성된 다이어그램 표시"""
+        st.header("📊 최신 생성된 다이어그램")
+
+        if diagram_path and os.path.exists(diagram_path):
+            st.image(diagram_path, caption="최신 아키텍처 다이어그램", use_column_width=True)
+            with open(diagram_path, "rb") as file:
+                st.download_button(
+                    label="📥 다이어그램 다운로드",
+                    data=file,
+                    file_name="architecture_diagram.png",
+                    mime="image/png"
+                )
+        else:
+            st.info("아직 생성된 다이어그램이 없습니다.")
+
+
     @staticmethod
     def render_info_section():
         """정보 섹션 렌더링"""
