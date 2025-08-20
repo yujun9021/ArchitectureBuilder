@@ -63,26 +63,33 @@ class UIComponents:
     
     @staticmethod
     def render_code_display(diagram_code):
-        """코드 표시 섹션 렌더링"""
+        """코드 표시 섹션 렌더링 (expander 형태)"""
         if diagram_code:
-            st.header("💻 생성된 Python 코드")
-            st.code(diagram_code, language="python")
-            
-            st.download_button(
-                label="📥 Python 코드 다운로드",
-                data=diagram_code,
-                file_name="cloud_architecture.py",
-                mime="text/plain"
-            )
+            with st.expander("💻 생성된 Python 코드", expanded=False):
+                st.code(diagram_code, language="python")
+                
+                col_download1, col_download2 = st.columns([1, 3])
+                with col_download1:
+                    st.download_button(
+                        label="📥 Python 코드 다운로드",
+                        data=diagram_code,
+                        file_name="cloud_architecture.py",
+                        mime="text/plain"
+                    )
+        else:
+            # 코드가 없을 때는 접을 수 없는 형태로 표시
+            st.info("💻 생성된 Python 코드가 여기에 표시됩니다.")
     
     @staticmethod
     def render_chatbot_toggle():
-        """챗봇 토글 버튼 렌더링"""
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            if st.button("🤖 챗봇 열기" if not st.session_state.get('chat_open', False) else "❌ 챗봇 닫기"):
-                st.session_state.chat_open = not st.session_state.get('chat_open', False)
-                st.rerun()
+        """챗봇 토글 버튼 렌더링 (우측 상단용)"""
+        # 우측 상단에 배치하기 위해 더 작은 버튼으로 변경
+        button_text = "🤖 챗봇" if not st.session_state.get('chat_open', False) else "❌ 닫기"
+        button_type = "secondary" if not st.session_state.get('chat_open', False) else "primary"
+        
+        if st.button(button_text, type=button_type, use_container_width=True):
+            st.session_state.chat_open = not st.session_state.get('chat_open', False)
+            st.rerun()
     
     @staticmethod
     def render_chatbot(chat_history, gemini_client):

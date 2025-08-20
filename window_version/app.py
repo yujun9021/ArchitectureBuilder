@@ -20,8 +20,17 @@ if 'diagram_image' not in st.session_state:
 
 def main():
     """메인 애플리케이션"""
-    st.title("☁️ 클라우드 아키텍처 다이어그램 생성기")
-    st.markdown("Amazon Q와 DiagramMCP를 사용하여 클라우드 아키텍처 다이어그램을 생성합니다.")
+    # 제목과 챗봇 버튼을 한 줄에 배치
+    col_title, col_chat = st.columns([4, 1])
+    
+    with col_title:
+        st.title("☁️ 클라우드 아키텍처 다이어그램 생성기")
+        st.markdown("Amazon Q와 DiagramMCP를 사용하여 클라우드 아키텍처 다이어그램을 생성합니다.")
+    
+    with col_chat:
+        st.markdown("")  # 여백 추가
+        st.markdown("")  # 여백 추가
+        UIComponents.render_chatbot_toggle()
     
     # 클라이언트 초기화
     gemini_client = GeminiClient()
@@ -30,6 +39,56 @@ def main():
     
     # 설정 안내
     UIComponents.render_setup_guide()
+    
+    # 코드 블록과 다이어그램 공간 (설정 안내와 챗봇 사이)
+    col_code, col_diagram = st.columns([1, 1])
+    
+    with col_code:
+        st.subheader("💻 코드 예시")
+        st.markdown("""
+        ```python
+        # AWS 아키텍처 다이어그램 생성 예시
+        from diagrams import Diagram
+        from diagrams.aws.compute import EC2, Lambda
+        from diagrams.aws.storage import S3
+        from diagrams.aws.network import VPC, ELB
+        
+        with Diagram("aws_architecture", show=False):
+            # 다이어그램 구성
+            vpc = VPC("VPC")
+            elb = ELB("Load Balancer")
+            ec2 = EC2("Web Server")
+            lambda_func = Lambda("Function")
+            s3_bucket = S3("Storage")
+            
+            # 연결 관계
+            elb >> ec2
+            ec2 >> lambda_func
+            lambda_func >> s3_bucket
+        ```
+        """)
+    
+    with col_diagram:
+        st.subheader("🖼️ 다이어그램 예시")
+        # 기존 다이어그램 표시 공간을 여기로 이동
+        if st.session_state.diagram_image:
+            st.image(st.session_state.diagram_image, use_column_width=True)
+            
+            with open(st.session_state.diagram_image, "rb") as file:
+                st.download_button(
+                    label="📥 다이어그램 다운로드",
+                    data=file.read(),
+                    file_name="cloud_architecture.png",
+                    mime="image/png"
+                )
+        else:
+            st.info("👈 다이어그램을 생성하면 여기에 표시됩니다.")
+    
+    # 챗봇 렌더링 (코드/다이어그램 공간 아래)
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    
+    UIComponents.render_chatbot(st.session_state.chat_history, gemini_client)
     
     # 메인 컨텐츠
     col1, col2 = st.columns([1, 1])
@@ -83,19 +142,11 @@ def main():
                 st.warning("⚠️ 요구사항을 입력해주세요.")
     
     with col2:
-        UIComponents.render_diagram_display(st.session_state.diagram_image)
+        st.subheader("📊 생성된 다이어그램")
+        st.info("👈 왼쪽에서 요구사항을 입력하고 다이어그램을 생성해보세요.")
     
     # 생성된 코드 표시
     UIComponents.render_code_display(st.session_state.diagram_code)
-    
-    # 챗봇 토글 버튼
-    UIComponents.render_chatbot_toggle()
-    
-    # 챗봇 렌더링
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
-    
-    UIComponents.render_chatbot(st.session_state.chat_history, gemini_client)
 
 if __name__ == "__main__":
     main()
