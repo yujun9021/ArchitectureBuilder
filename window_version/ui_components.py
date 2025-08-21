@@ -127,8 +127,19 @@ class UIComponents:
         """챗봇 렌더링"""
         if st.session_state.get('chat_open', False):
             st.markdown("---")
-            st.header("🤖 Gemini AI 챗봇")
-            st.markdown("클라우드 아키텍처에 대해 질문하거나 대화해보세요.")
+            st.header("🤖 클라우드 아키텍처 설계 전문가")
+            st.markdown("""
+            **역할**: 클라우드 아키텍처 설계 전문가입니다.
+            
+            **작동 방식**:
+            - 사용자의 요청에 따라 클라우드 아키텍처를 트리 형태로 설계합니다
+            - AWS, Azure, GCP 등 주요 클라우드 플랫폼의 서비스를 활용합니다
+            - 이전에 설계한 아키텍처를 기억하고 수정 요청에 참조합니다
+            """)
+            
+            # 저장된 아키텍처 상태 표시
+            if gemini_client.get_current_architecture():
+                st.caption("💾 아키텍처가 저장되어 있습니다")
             
             # 챗봇 컨테이너
             chat_container = st.container()
@@ -156,6 +167,10 @@ class UIComponents:
                     # 어시스턴트 메시지 추가
                     chat_history.append({"role": "assistant", "content": response})
                     
+                    # 응답에서 아키텍처 추출 및 저장
+                    if gemini_client.save_architecture(response):
+                        st.success("✅ 아키텍처가 저장되었습니다!")
+                    
                     # Gemini 응답에서 Python 코드 파싱하여 코드 블록에 표시
                     parsed_code = extract_code_from_gemini_response(response)
                     if parsed_code:
@@ -167,4 +182,5 @@ class UIComponents:
             with col_reset1:
                 if st.button("🗑️ 대화 기록 초기화"):
                     chat_history.clear()
+                    gemini_client.clear_architecture()  # 저장된 아키텍처도 초기화
                     st.rerun()
