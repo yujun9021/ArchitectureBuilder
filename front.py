@@ -1,11 +1,47 @@
-import streamlit as st 
+import streamlit as st
 import google.generativeai as genai
 from dotenv import load_dotenv
 import os
 import json
 import html
 import time
-DIAGRAM_H = 420  # 두 다이어그램 영역의 공통 높이(px)
+
+
+# =========================================
+# 1. 세션 상태 초기화
+# =========================================
+if "show_landing" not in st.session_state:
+    st.session_state.show_landing = True
+
+# =========================================
+# 2. 랜딩 화면
+# =========================================
+if st.session_state.show_landing:
+    st.markdown("""
+        <style>
+        .landing-img {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            cursor: pointer;
+            z-index: 9999;
+        }
+        </style>
+        <a href="?start=1">
+            <img src="https://i.postimg.cc/gcQ8jXNc/Group-Project-1.png" class="landing-img">
+        </a>
+    """, unsafe_allow_html=True)
+
+    # 클릭 감지
+    if st.query_params.get("start"):
+        st.session_state.show_landing = False
+        st.query_params = {}  # 클릭 후 URL 초기화
+        st.rerun()  # Streamlit 최신 버전용
+
+    st.stop()  # 랜딩 화면이면 여기서 종료
 
 
 # =========================================
@@ -23,14 +59,86 @@ st.set_page_config(
     layout="wide"
 )
 
-# 메인 타이틀
-st.title("⚡AWS Diagram Generator")
+
+col1, col2 = st.columns([0.9, 0.1])  # 왼쪽 90%, 오른쪽 10%
+
+with col1:
+    st.title("⚡AWS Diagram Generator")
+
+with col2:
+    st.image(
+        "https://i.postimg.cc/KcBtH7PX/1755745208336.png", 
+        width=180  # 기존 50에서 120으로 확대
+    )
 
 # =========================================
-# CSS: 말풍선 + 카드 + 중간제목 스타일
+# CSS: 말풍선 + 카드 + 중간제목 스타일 
 # =========================================
 st.markdown("""
 <style>
+/* ===============================
+   Global Layout / Font
+================================= */
+body {
+    background-color: #fafafa;
+    color: #111;
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.5;
+}
+
+/* ===============================
+   Animated Main Title
+================================= */
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+h1 {
+    font-weight: 800 !important;
+    border-left: 6px solid #f15a24;
+    padding-left: 10px;
+    margin-bottom: 20px;
+    font-size: 48px !important;
+    background: linear-gradient(270deg, #f15a24, #ffd700, #1e90ff, #32cd32);
+    background-size: 800% 800%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradientMove 6s ease infinite;
+}
+
+/* ===============================
+   Card / Section Titles
+================================= */
+.card {
+    border-radius: 14px;
+    padding: 16px;
+    background: #ffffff;
+    border: 1px solid #f15a24;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+    margin-bottom: 18px;
+}
+
+.title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f15a24;
+    height: 36px;       /* 제목 영역 높이 */
+    padding-top: 6px;   /* 글자를 아래로 살짝 내림 */
+    margin-bottom: 4px; /* 카드와의 간격 */
+}
+
+.section-subtitle {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 16px 0 8px 0;
+    color: #111;
+}
+
+/* ===============================
+   Chat Bubble Styles
+================================= */
 .chat-card {
     border-radius: 15px;
     padding: 15px;
@@ -38,14 +146,16 @@ st.markdown("""
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     margin-bottom: 20px;
 }
+
 .chat-title {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #f15a24;
+    border-left: 6px solid #f15a24;
+    padding-left: 10px;
+    margin-bottom: 16px;
 }
+
 .chat-container {
     max-height: 400px;
     overflow-y: auto;
@@ -54,37 +164,127 @@ st.markdown("""
     border-radius: 10px;
     background-color: #fafafa;
 }
-.chat-bubble-wrapper { display: flex; margin: 8px; }
-.chat-bubble { max-width: 60%; padding: 10px 15px; border-radius: 15px; font-size: 15px; line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; box-shadow: 0 2px 6px rgba(0,0,0,0.05);}
-.user-bubble-wrapper { justify-content: flex-end; }
-.user-bubble { background-color: #DCF8C6; }
-.bot-bubble-wrapper { justify-content: flex-start; }
-.bot-bubble { background-color: #F1F0F0; }
-.chat-input-spacer { height: 20px; margin-bottom: 10px; }
 
-.card {
-    border-radius: 12px;
-    padding: 14px;
-    background: #ffffff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    margin-bottom: 16px;
+.chat-bubble-wrapper {
+    display: flex;
+    margin: 8px;
 }
 
-.title {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 8px;
+.chat-bubble {
+    max-width: 60%;
+    padding: 10px 15px;
+    border-radius: 15px;
+    font-size: 15px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
-.section-subtitle {
-    font-size: 18px;
-    font-weight: 600;
-    margin: 16px 0 8px 0;
-    color: #333;
+.user-bubble-wrapper {
+    justify-content: flex-end;
 }
 
+.user-bubble {
+    background-color: #FFE0C1;
+    color: #111;
+    background-image: none;
+}
+
+.bot-bubble-wrapper {
+    justify-content: flex-start;
+}
+
+.bot-bubble {
+    background-color: #F1F0F0;
+}
+
+.chat-input-spacer {
+    height: 20px;
+    margin-bottom: 10px;
+}
+
+/* ===============================
+   Buttons
+================================= */
+button[kind="secondary"], button[kind="primary"] {
+    background-color: #f15a24 !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+    transition: background-color 0.2s ease;
+}
+button[kind="secondary"]:hover, button[kind="primary"]:hover {
+    background-color: #d94c1a !important;
+}
+
+/* ===============================
+   Checkboxes
+================================= */
+.stCheckbox label {
+    color: #111 !important;
+    font-weight: 500 !important;
+}
+.stCheckbox input:checked + div {
+    border-color: #f15a24 !important;
+}
+
+/* ===============================
+   Expanders
+================================= */
+.streamlit-expanderHeader {
+    font-weight: 600 !important;
+    color: #111 !important;
+}
+.streamlit-expanderHeader:hover {
+    color: #f15a24 !important;
+}
+
+/* ===============================
+   Scrollbar Customization
+================================= */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #f2f2f2;
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+    background: #f15a24;
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #d94c1a;
+}
+
+/* ===============================
+   Cloud / Tag Titles
+================================= */
+.cloud-title {
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(90deg, #f15a24, #ffd700, #1e90ff, #32cd32);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.cloud-title::after {
+    content: '';
+    flex-grow: 1;
+    height: 2px;
+    background-color: #f15a24;
+    margin-left: 10px;
+    border-radius: 2px;
+}
 </style>
 """, unsafe_allow_html=True)
+
 
 # =========================================
 # 세션 상태 초기화
@@ -119,7 +319,7 @@ def generate_combined_prompt(user_prompt):
 # =========================================
 # 클라우드 아키텍처 다이어그램
 # =========================================
-st.markdown("<h3 style='text-align:left;'>Cloud Architecture Diagrams</h3>", unsafe_allow_html=True)
+st.markdown('<div class="cloud-title">☁️ Cloud Architecture Diagrams</div>', unsafe_allow_html=True)
 
 colA, colB = st.columns(2, gap="large")
 # ================== 보안 미적용 ==================
@@ -127,7 +327,7 @@ with colA:
     # 제목(왼쪽) + 제작하기 버튼(오른쪽)을 한 줄에 배치
     _title_col, _btn_col = st.columns([0.8, 0.2])
     with _title_col:
-        st.markdown('<div class="title">🔓 보안 미적용 다이어그램</div>', unsafe_allow_html=True)
+        st.markdown('<div class="title"> 트리 구조 다이어그램 </div>', unsafe_allow_html=True)
     with _btn_col:
         make_clicked = st.button("제작하기", key="insecure_make_button", use_container_width=True)
 
@@ -157,7 +357,15 @@ with colA:
             st.checkbox(item, key=f"check_{item}")
 
 with colB:
-    st.markdown('<div class="title">🔐 보안 적용 다이어그램</div>', unsafe_allow_html=True)
+    # 제목(왼쪽) + 빈 버튼 자리(오른쪽)를 한 줄에 배치
+    _title_col, _btn_col = st.columns([0.8, 0.2])
+    with _title_col:
+        st.markdown('<div class="title"> 보안 적용 다이어그램 </div>', unsafe_allow_html=True)
+    with _btn_col:
+        secure_make_clicked = st.button("제작하기", key="secure_make_button", use_container_width=True)
+
+
+    # 다이어그램 표시 영역
     secure_placeholder = st.empty()
     with secure_placeholder.container():
         st.markdown(
@@ -178,7 +386,8 @@ with colB:
         ss["board_desc"] = desc
 
 # 챗봇 영역
-st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
+st.markdown('<div style="height:20px;"></div>', unsafe_allow_html=True)  # <-- 여기서 공백 추가
+st.markdown('<div class="chat-title">🧠 클라우드 설계 어시스턴트</div>', unsafe_allow_html=True)
 with st.expander("아키텍처 자동 응답기", expanded=True):
     # 항상 세션 상태를 참조해서 챗봇 내용 렌더링
     chat_html = '<div class="chat-container">'
