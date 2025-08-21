@@ -6,8 +6,8 @@ import html
 import re
 import subprocess
 import platform
-from config import GOOGLE_API_KEY, AMAZON_Q_PATH, DIAGRAM_SETTINGS
 from pathlib import Path
+from config import GOOGLE_API_KEY, AMAZON_Q_PATH, DIAGRAM_SETTINGS
 
 # =========================================
 # 환경 변수 로드
@@ -195,39 +195,6 @@ def extract_tree_structure(text):
     return text
 
 # =========================================
-# 다이어그램 생성 함수
-# =========================================
-def create_diagram_from_tree():
-    """현재 트리 구조를 기반으로 Amazon Q를 통해 다이어그램 생성"""
-    current_tree = ss.get("current_tree", "")
-    
-    if not current_tree:
-        st.warning("⚠️ 다이어그램을 생성할 트리 구조가 없습니다. 먼저 아키텍처를 설계해주세요.")
-        return
-    
-    try:
-        with st.spinner("🎨 Amazon Q를 통해 다이어그램을 생성하고 있습니다..."):
-            result = amazon_q_client.generate_diagram(current_tree)
-            
-            if result:
-                st.success("✅ 다이어그램 생성 요청이 완료되었습니다!")
-                st.info("📝 Amazon Q 응답:")
-                st.code(result, language="text")
-                
-                # 생성된 다이어그램 파일 확인
-                latest_diagram = diagram_manager.find_latest_diagram()
-                if latest_diagram:
-                    st.success(f"🎉 다이어그램 파일이 생성되었습니다: {latest_diagram.name}")
-                else:
-                    st.info("📁 다이어그램 파일을 확인 중입니다...")
-                    
-            else:
-                st.error("❌ 다이어그램 생성에 실패했습니다.")
-                
-    except Exception as e:
-        st.error(f"❌ 다이어그램 생성 중 오류가 발생했습니다: {str(e)}")
-
-# =========================================
 # 챗봇 응답 생성 함수
 # =========================================
 def generate_chatbot_response(user_message):
@@ -296,6 +263,68 @@ def clear_tree_structure():
     """트리 구조를 초기화합니다."""
     ss["current_tree"] = ""
     st.success("트리 구조가 초기화되었습니다!")
+
+# =========================================
+# 다이어그램 생성 함수
+# =========================================
+def create_diagram_from_tree():
+    """현재 트리 구조를 기반으로 Amazon Q를 통해 다이어그램 생성"""
+    current_tree = ss.get("current_tree", "")
+    
+    if not current_tree:
+        st.warning("⚠️ 다이어그램을 생성할 트리 구조가 없습니다. 먼저 아키텍처를 설계해주세요.")
+        return
+    
+    try:
+        with st.spinner("🎨 Amazon Q를 통해 다이어그램을 생성하고 있습니다..."):
+            result = amazon_q_client.generate_diagram(current_tree)
+            
+            if result:
+                st.success("✅ 다이어그램 생성 요청이 완료되었습니다!")
+                st.info("📝 Amazon Q 응답:")
+                st.code(result, language="text")
+                
+                # 생성된 다이어그램 파일 확인
+                latest_diagram = diagram_manager.find_latest_diagram()
+                if latest_diagram:
+                    st.success(f"🎉 다이어그램 파일이 생성되었습니다: {latest_diagram.name}")
+                    # 다이어그램을 세션 상태에 저장
+                    ss["current_diagram"] = str(latest_diagram)
+                    # 페이지 새로고침하여 다이어그램 표시
+                    st.rerun()
+                else:
+                    st.info("📁 다이어그램 파일을 확인 중입니다...")
+                    
+            else:
+                st.error("❌ 다이어그램 생성에 실패했습니다.")
+                
+    except Exception as e:
+        st.error(f"❌ 다이어그램 생성 중 오류가 발생했습니다: {str(e)}")
+
+# =========================================
+# 다이어그램 표시 함수
+# =========================================
+def display_diagram():
+    """현재 다이어그램을 표시합니다."""
+    current_diagram = ss.get("current_diagram", "")
+    
+    if current_diagram and os.path.exists(current_diagram):
+        try:
+            # 다이어그램 이미지 표시
+            st.image(current_diagram, caption="생성된 아키텍처 다이어그램", use_container_width=True)
+                    
+        except Exception as e:
+            st.error(f"❌ 다이어그램 표시 중 오류가 발생했습니다: {str(e)}")
+            # 오류 발생 시 다이어그램 정보 초기화
+            ss["current_diagram"] = ""
+    else:
+        # 다이어그램이 없을 때 기본 메시지 표시
+        st.markdown(
+            '<div class="card" style="height:360px; display:flex; align-items:center; justify-content:center; color:#888;">'
+            '여기에 다이어그램이 표시됩니다.'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 # =========================================
 # 페이지 레이아웃
@@ -381,7 +410,11 @@ st.markdown("""
 .tree-controls {
     display: flex;
     gap: 10px;
-    margin-top: 10px;
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -397,6 +430,9 @@ if "messages" not in st.session_state:
 if "current_tree" not in st.session_state:
     st.session_state["current_tree"] = ""
 
+if "current_diagram" not in st.session_state:
+    st.session_state["current_diagram"] = ""
+
 ss = st.session_state
 
 # =========================================
@@ -406,7 +442,15 @@ st.markdown("<h3 style='text-align:left;'>Cloud Architecture Diagrams</h3>", uns
 
 colA, colB = st.columns(2, gap="large")
 with colA:
-    st.markdown('<div class="title">🌳 아키텍처 트리 구조</div>', unsafe_allow_html=True)
+    # 제목(왼쪽) + 제작하기 버튼(오른쪽)을 한 줄에 배치
+    _title_col, _btn_col = st.columns([0.8, 0.2])
+    with _title_col:
+        st.markdown('<div class="title">🌳 아키텍처 트리 구조</div>', unsafe_allow_html=True)
+    with _btn_col:
+        if st.button("제작하기", key="create_diagram_button", use_container_width=True):
+            create_diagram_from_tree()
+    
+    # 트리 구조 표시 영역
     tree_placeholder = st.empty()
     with tree_placeholder.container():
         if ss.get("current_tree"):
@@ -415,18 +459,17 @@ with colA:
                 unsafe_allow_html=True
             )
             
-            # 트리 구조 제어 버튼들
-            col1, col2, col3 = st.columns(3)
+            # 트리 구조 제어 버튼들 (아래쪽에 배치)
+            st.markdown('<div class="tree-controls">', unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 트리 구조 저장", key="save_tree_button"):
-                    st.success("트리 구조가 저장되었습니다!")
-            with col2:
-                if st.button("🗑️ 트리 초기화", key="clear_tree_button"):
+                if st.button("🗑️ 초기화", key="clear_tree_button", use_container_width=True):
                     clear_tree_structure()
                     st.rerun()
-            with col3:
-                if st.button("🎨 다이어그램 제작하기", key="create_diagram_button"):
-                    create_diagram_from_tree()
+            with col2:
+                if st.button("🔄 새로고침", key="refresh_tree_button", use_container_width=True):
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown(
                 '<div class="card" style="height:360px; display:flex; align-items:center; justify-content:center; color:#888;">'
@@ -439,36 +482,40 @@ with colB:
     st.markdown('<div class="title">🔐 보안 적용 다이어그램</div>', unsafe_allow_html=True)
     secure_placeholder = st.empty()
     with secure_placeholder.container():
-        st.markdown(
-            '<div class="card" style="height:360px; display:flex; align-items:center; justify-content:center; color:#888;">'
-            '여기에 다이어그램이 표시됩니다.'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        display_diagram()
 
-# 체크 리스트 (토글)
-with st.expander("✨ 체크 리스트", expanded=False):
-    desc = st.text_area(
-        "보안 요소 설명 입력",
-        value=ss.get("board_desc", ""),
-        height=200,
-        label_visibility="collapsed"
-    )
-    ss["board_desc"] = desc
+# 체크 리스트와 보안 요소 설명서를 한 줄에 배치
+col1, col2 = st.columns(2, gap="large")
+
+with col1:
+    with st.expander("✅ 체크리스트", expanded=False):
+        checklist_items = [
+            "VPC 적용 여부",
+            "서브넷 분리",
+            "보안 그룹 설정",
+            "IAM 권한 최소화",
+            "데이터 암호화"
+        ]
+        for item in checklist_items:
+            st.checkbox(item, key=f"check_{item}")
+
+with col2:
+    with st.expander("✨ 보안 요소 설명서", expanded=False):
+        recs = st.text_area(
+            "추가 고려 사항 입력", 
+            value=ss.get("board_suggestions", ""), 
+            height=200, 
+            label_visibility="collapsed"
+        )
+        ss["board_suggestions"] = recs
 
 # 챗봇 영역
 st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
 with st.expander("아키텍처 설계 챗봇", expanded=True):
-    # 챗봇 상태 표시
+    # 챗봇 상태 표시 (에러일 때만 표시)
     if not api_ready:
         st.error("❌ Gemini API가 준비되지 않았습니다.")
         st.info("📝 .env 파일에 GEMINI_API_KEY=your_api_key_here 를 추가하세요.")
-    else:
-        st.success("✅ Gemini API가 준비되었습니다!")
-    
-    # 현재 트리 구조 상태 표시
-    if ss.get("current_tree"):
-        st.info("🌳 현재 아키텍처가 기억되고 있습니다. 다음 요청 시 이 구조를 참고하여 일관성을 유지합니다.")
     
     # 챗봇 내용 렌더링
     chat_html = '<div class="chat-container">'
@@ -502,7 +549,3 @@ with st.expander("아키텍처 설계 챗봇", expanded=True):
     elif prompt and not api_ready:
         st.error("API가 준비되지 않았습니다. 환경변수를 확인해주세요.")
 
-# 보안 요소 설명
-st.markdown('<div class="section-subtitle">✨보안 요소 설명서</div>', unsafe_allow_html=True)
-recs = st.text_area("추가 고려 사항 입력", value=ss.get("board_suggestions", ""), height=140, label_visibility="collapsed")
-ss["board_suggestions"] = recs
