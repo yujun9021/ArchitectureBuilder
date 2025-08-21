@@ -33,15 +33,12 @@ class AmazonQClient:
 {tree_structure}
 
 작업 내용:
-1. Python diagrams 라이브러리를 사용하여 다이어그램 코드 생성
+1. 9:16 비율로 다이어그램 생성
 2. 실제 다이어그램 이미지 파일(.png)을 './generated-diagrams' 폴더에 저장
 3. AWS 서비스 아이콘과 연결 관계를 포함한 시각적 아키텍처 다이어그램 생성
 
+
 응답 형식:
-다이어그램 코드:
-```python
-[생성된 Python 코드]
-```
 
 파일 정보:
 - 파일명: [생성된_파일명.png]
@@ -310,7 +307,7 @@ def display_diagram():
     
     if current_diagram and os.path.exists(current_diagram):
         try:
-            # 다이어그램 이미지 표시
+            # 다이어그램 이미지를 지정된 공간 크기에 맞춰 표시
             st.image(current_diagram, caption="생성된 아키텍처 다이어그램", use_container_width=True)
                     
         except Exception as e:
@@ -320,7 +317,7 @@ def display_diagram():
     else:
         # 다이어그램이 없을 때 기본 메시지 표시
         st.markdown(
-            '<div class="card" style="height:360px; display:flex; align-items:center; justify-content:center; color:#888;">'
+            '<div class="card" style="height:460px; display:flex; align-items:center; justify-content:center; color:#888;">'
             '여기에 다이어그램이 표시됩니다.'
             '</div>',
             unsafe_allow_html=True
@@ -455,7 +452,7 @@ with colA:
     with tree_placeholder.container():
         if ss.get("current_tree"):
             st.markdown(
-                f'<div class="tree-display">{ss["current_tree"]}</div>',
+                f'<div class="card" style="height:440px; overflow-y:auto; white-space:pre-wrap; color:#000; padding:15px; font-family: monospace; font-size:14px; line-height:1.6;">{ss["current_tree"]}</div>',
                 unsafe_allow_html=True
             )
             
@@ -472,7 +469,7 @@ with colA:
             st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown(
-                '<div class="card" style="height:360px; display:flex; align-items:center; justify-content:center; color:#888;">'
+                '<div class="card" style="height:400px; display:flex; align-items:center; justify-content:center; color:#888;">'
                 '여기에 아키텍처 트리 구조가 표시됩니다.' 
                 '</div>',
                 unsafe_allow_html=True
