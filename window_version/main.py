@@ -33,10 +33,10 @@ class AmazonQClient:
 {tree_structure}
 
 작업 내용:
-1. 9:16 비율로 다이어그램 생성
+1. "graph_attr={"dpi": "300", "size": "6.4,3.6"}" 비율로 다이어그램 생성
 2. 실제 다이어그램 이미지 파일(.png)을 './generated-diagrams' 폴더에 저장
 3. AWS 서비스 아이콘과 연결 관계를 포함한 시각적 아키텍처 다이어그램 생성
-
+4. 중복된 파일이있다면 V2 파일명으로 저장
 
 응답 형식:
 
@@ -287,6 +287,8 @@ def create_diagram_from_tree():
                     st.success(f"🎉 다이어그램 파일이 생성되었습니다: {latest_diagram.name}")
                     # 다이어그램을 세션 상태에 저장
                     ss["current_diagram"] = str(latest_diagram)
+                    # 다이어그램 생성 완료 플래그 설정
+                    ss["diagram_created"] = True
                     # 페이지 새로고침하여 다이어그램 표시
                     st.rerun()
                 else:
@@ -430,6 +432,9 @@ if "current_tree" not in st.session_state:
 if "current_diagram" not in st.session_state:
     st.session_state["current_diagram"] = ""
 
+if "diagram_created" not in st.session_state:
+    st.session_state["diagram_created"] = False
+
 ss = st.session_state
 
 # =========================================
@@ -456,17 +461,7 @@ with colA:
                 unsafe_allow_html=True
             )
             
-            # 트리 구조 제어 버튼들 (아래쪽에 배치)
-            st.markdown('<div class="tree-controls">', unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🗑️ 초기화", key="clear_tree_button", use_container_width=True):
-                    clear_tree_structure()
-                    st.rerun()
-            with col2:
-                if st.button("🔄 새로고침", key="refresh_tree_button", use_container_width=True):
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+
         else:
             st.markdown(
                 '<div class="card" style="height:400px; display:flex; align-items:center; justify-content:center; color:#888;">'
@@ -479,7 +474,50 @@ with colB:
     st.markdown('<div class="title">🔐 보안 적용 다이어그램</div>', unsafe_allow_html=True)
     secure_placeholder = st.empty()
     with secure_placeholder.container():
-        display_diagram()
+        # 제작하기 버튼을 누르기 전에는 챗봇을 여기에 표시
+        if not ss.get("diagram_created", False):
+            # 챗봇을 보안 적용 다이어그램 공간에 표시
+            st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
+            with st.expander("아키텍처 설계 챗봇", expanded=True):
+                # 챗봇 상태 표시 (에러일 때만 표시)
+                if not api_ready:
+                    st.error("❌ Gemini API가 준비되지 않았습니다.")
+                    st.info("📝 .env 파일에 GEMINI_API_KEY=your_api_key_here 를 추가하세요.")
+                
+                # 챗봇 내용 렌더링
+                chat_html = '<div class="chat-container">'
+                for chat in ss["messages"]:
+                    role = chat["role"]
+                    content = chat["content"]
+                    if role == "user":
+                        chat_html += f"<div class='chat-bubble-wrapper user-bubble-wrapper'><div class='chat-bubble user-bubble'>{html.escape(content)}</div></div>"
+                    else:
+                        chat_html += f"<div class='chat-bubble-wrapper bot-bubble-wrapper'><div class='chat-bubble bot-bubble'>{html.escape(content)}</div></div>"
+                chat_html += '</div>'
+                st.markdown(chat_html, unsafe_allow_html=True)
+                st.markdown('<div class="chat-input-spacer"></div>', unsafe_allow_html=True)
+
+                # 입력창
+                prompt = st.chat_input("아키텍처 요청사항을 입력하세요")
+                if prompt and api_ready:
+                    # 사용자 메시지 추가
+                    ss["messages"].append({"role": "user", "content": prompt})
+                    
+                    # 챗봇 응답 생성
+                    with st.spinner("🤔 아키텍처 설계 중..."):
+                        bot_response = generate_chatbot_response(prompt)
+                        ss["messages"].append({"role": "assistant", "content": bot_response})
+                        
+                        # 트리 구조 추출 및 저장
+                        update_tree_structure(bot_response)
+                    
+                    # 페이지 새로고침
+                    st.rerun()
+                elif prompt and not api_ready:
+                    st.error("API가 준비되지 않았습니다. 환경변수를 확인해주세요.")
+        else:
+            # 제작하기 버튼을 누른 후에는 다이어그램 표시
+            display_diagram()
 
 # 체크 리스트와 보안 요소 설명서를 한 줄에 배치
 col1, col2 = st.columns(2, gap="large")
@@ -506,43 +544,44 @@ with col2:
         )
         ss["board_suggestions"] = recs
 
-# 챗봇 영역
-st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
-with st.expander("아키텍처 설계 챗봇", expanded=True):
-    # 챗봇 상태 표시 (에러일 때만 표시)
-    if not api_ready:
-        st.error("❌ Gemini API가 준비되지 않았습니다.")
-        st.info("📝 .env 파일에 GEMINI_API_KEY=your_api_key_here 를 추가하세요.")
-    
-    # 챗봇 내용 렌더링
-    chat_html = '<div class="chat-container">'
-    for chat in ss["messages"]:
-        role = chat["role"]
-        content = chat["content"]
-        if role == "user":
-            chat_html += f"<div class='chat-bubble-wrapper user-bubble-wrapper'><div class='chat-bubble user-bubble'>{html.escape(content)}</div></div>"
-        else:
-            chat_html += f"<div class='chat-bubble-wrapper bot-bubble-wrapper'><div class='chat-bubble bot-bubble'>{html.escape(content)}</div></div>"
-    chat_html += '</div>'
-    st.markdown(chat_html, unsafe_allow_html=True)
-    st.markdown('<div class="chat-input-spacer"></div>', unsafe_allow_html=True)
+# 챗봇 영역 (제작하기 버튼을 누른 후에만 표시)
+if ss.get("diagram_created", False):
+    st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
+    with st.expander("아키텍처 설계 챗봇", expanded=True):
+        # 챗봇 상태 표시 (에러일 때만 표시)
+        if not api_ready:
+            st.error("❌ Gemini API가 준비되지 않았습니다.")
+            st.info("📝 .env 파일에 GEMINI_API_KEY=your_api_key_here 를 추가하세요.")
+        
+        # 챗봇 내용 렌더링
+        chat_html = '<div class="chat-container">'
+        for chat in ss["messages"]:
+            role = chat["role"]
+            content = chat["content"]
+            if role == "user":
+                chat_html += f"<div class='chat-bubble-wrapper user-bubble-wrapper'><div class='chat-bubble user-bubble'>{html.escape(content)}</div></div>"
+            else:
+                chat_html += f"<div class='chat-bubble-wrapper bot-bubble-wrapper'><div class='chat-bubble bot-bubble'>{html.escape(content)}</div></div>"
+        chat_html += '</div>'
+        st.markdown(chat_html, unsafe_allow_html=True)
+        st.markdown('<div class="chat-input-spacer"></div>', unsafe_allow_html=True)
 
-    # 입력창
-    prompt = st.chat_input("아키텍처 요청사항을 입력하세요")
-    if prompt and api_ready:
-        # 사용자 메시지 추가
-        ss["messages"].append({"role": "user", "content": prompt})
-        
-        # 챗봇 응답 생성
-        with st.spinner("🤔 아키텍처 설계 중..."):
-            bot_response = generate_chatbot_response(prompt)
-            ss["messages"].append({"role": "assistant", "content": bot_response})
+        # 입력창
+        prompt = st.chat_input("아키텍처 요청사항을 입력하세요")
+        if prompt and api_ready:
+            # 사용자 메시지 추가
+            ss["messages"].append({"role": "user", "content": prompt})
             
-            # 트리 구조 추출 및 저장
-            update_tree_structure(bot_response)
-        
-        # 페이지 새로고침
-        st.rerun()
-    elif prompt and not api_ready:
-        st.error("API가 준비되지 않았습니다. 환경변수를 확인해주세요.")
+            # 챗봇 응답 생성
+            with st.spinner("🤔 아키텍처 설계 중..."):
+                bot_response = generate_chatbot_response(prompt)
+                ss["messages"].append({"role": "assistant", "content": bot_response})
+                
+                # 트리 구조 추출 및 저장
+                update_tree_structure(bot_response)
+            
+            # 페이지 새로고침
+            st.rerun()
+        elif prompt and not api_ready:
+            st.error("API가 준비되지 않았습니다. 환경변수를 확인해주세요.")
 

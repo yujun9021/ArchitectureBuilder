@@ -1,0 +1,19 @@
+digraph "Static Website Hosting Architecture" {
+	graph [bgcolor=white fontcolor="#2D3436" fontname="Sans-Serif" fontsize=15 label="Static Website Hosting Architecture" nodesep=0.60 pad=2.0 rankdir=TB ranksep=0.75 ratio=fill size="6,10.67!" splines=ortho]
+	node [fixedsize=true fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 height=1.4 imagescale=true labelloc=b shape=box style=rounded width=1.4]
+	edge [color="#7B8894"]
+	"819ba8c222d74bb9922eea67aca7052e" [label="Website Visitors" height=1.9 image="/home/yujun/.cache/uv/archive-v0/hE30l7IzQiNvl_lnJC3WJ/lib/python3.12/site-packages/resources/aws/general/user.png" shape=none]
+	"425097a7f8ec46d098d6f206431c25b2" [label="AWS Certificate Manager
+(SSL Certificate)" height=2.3 image="/home/yujun/.cache/uv/archive-v0/hE30l7IzQiNvl_lnJC3WJ/lib/python3.12/site-packages/resources/aws/security/certificate-manager.png" shape=none]
+	subgraph "cluster_Amazon CloudFront (CDN)" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Amazon CloudFront (CDN)" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"64c145f210204d09b23faa291f97c593" [label="CloudFront Distribution" height=1.9 image="/home/yujun/.cache/uv/archive-v0/hE30l7IzQiNvl_lnJC3WJ/lib/python3.12/site-packages/resources/aws/network/cloudfront.png" shape=none]
+		"4aa2bd2675f940f0b94867cd81983165" [label="Cache Behavior
+(TTL Settings)" height=2.3 image="/home/yujun/.cache/uv/archive-v0/hE30l7IzQiNvl_lnJC3WJ/lib/python3.12/site-packages/resources/aws/network/cloudfront-edge-location.png" shape=none]
+	}
+	subgraph "cluster_Amazon S3 (Static Content Storage)" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Amazon S3 (Static Content Storage)" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"1ccaca7437394bc1919c26100ae9f0fc" [label="S3 Bucket
+(Static Website)" height=2.3 image="/home/yujun/.cache/uv/archive-v0/hE30l7IzQiNvl_lnJC3WJ/lib/python3.12/site-packages/resources/aws/storage/simple-storage-service-s3.png" shape=none]
+	}
+}
