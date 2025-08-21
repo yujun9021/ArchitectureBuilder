@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 import os
 import json
 import html
+import time
+DIAGRAM_H = 420  # 두 다이어그램 영역의 공통 높이(px)
+
 
 # =========================================
 # 환경 변수 로드
@@ -79,6 +82,7 @@ st.markdown("""
     margin: 16px 0 8px 0;
     color: #333;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -118,21 +122,39 @@ def generate_combined_prompt(user_prompt):
 st.markdown("<h3 style='text-align:left;'>Cloud Architecture Diagrams</h3>", unsafe_allow_html=True)
 
 colA, colB = st.columns(2, gap="large")
+# ================== 보안 미적용 ==================
 with colA:
-    st.markdown('<div class="title">🔓 보안 미적용 다이어그램</div>', unsafe_allow_html=True)
+    # 제목(왼쪽) + 제작하기 버튼(오른쪽)을 한 줄에 배치
+    _title_col, _btn_col = st.columns([0.8, 0.2])
+    with _title_col:
+        st.markdown('<div class="title">🔓 보안 미적용 다이어그램</div>', unsafe_allow_html=True)
+    with _btn_col:
+        make_clicked = st.button("제작하기", key="insecure_make_button", use_container_width=True)
+
+    # 다이어그램 표시 영역
     insecure_placeholder = st.empty()
     with insecure_placeholder.container():
         st.markdown(
             '<div class="card" style="height:360px; display:flex; align-items:center; justify-content:center; color:#888;">'
-            '여기에 다이어그램이 표시됩니다.' 
+            '여기에 다이어그램이 표시됩니다.'
             '</div>',
             unsafe_allow_html=True
         )
     
-    # 🔹 보안 미적용 다이어그램 옆 제작하기 버튼
-    if st.button("제작하기", key="insecure_make_button"):
-        # 여기에 백엔드 호출 기능 구현
-        st.info("백엔드로 다이어그램 전송 예정")
+    #if st.button("제작하기", key="insecure_make_button"):
+        #pass
+
+    # ✅ 체크리스트 (보안 미적용 다이어그램 아래에 배치)
+    with st.expander("✅ 체크리스트", expanded=False):
+        checklist_items = [
+            "VPC 적용 여부",
+            "서브넷 분리",
+            "보안 그룹 설정",
+            "IAM 권한 최소화",
+            "데이터 암호화"
+        ]
+        for item in checklist_items:
+            st.checkbox(item, key=f"check_{item}")
 
 with colB:
     st.markdown('<div class="title">🔐 보안 적용 다이어그램</div>', unsafe_allow_html=True)
@@ -145,15 +167,15 @@ with colB:
             unsafe_allow_html=True
         )
 
-# 체크 리스트 (토글)
-with st.expander("✨ 체크 리스트", expanded=False):
-    desc = st.text_area(
-        "보안 요소 설명 입력",
-        value=ss.get("board_desc", ""),
-        height=200,
-        label_visibility="collapsed"
-    )
-    ss["board_desc"] = desc
+    # 🔐 보안 요소 설명 (보안 적용 다이어그램 아래에 배치)
+    with st.expander("🔐 보안 요소 설명", expanded=False):
+        desc = st.text_area(
+            "보안 요소 설명 입력",
+            value=ss.get("board_desc", ""),
+            height=200,
+            label_visibility="collapsed"
+        )
+        ss["board_desc"] = desc
 
 # 챗봇 영역
 st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
@@ -212,8 +234,3 @@ with st.expander("아키텍처 자동 응답기", expanded=True):
         # 챗봇 영역에 설명 추가
         ss["messages"].append({"role": "assistant", "content": ss["last_explanation"]})
         st.rerun()
-
-# 보안 요소 설명
-st.markdown('<div class="section-subtitle">✨보안 요소 설명서</div>', unsafe_allow_html=True)
-recs = st.text_area("추가 고려 사항 입력", value=ss.get("board_suggestions", ""), height=140, label_visibility="collapsed")
-ss["board_suggestions"] = recs
