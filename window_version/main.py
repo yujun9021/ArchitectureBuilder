@@ -16,6 +16,111 @@ load_dotenv()
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
 # =========================================
+# 체크리스트 관리 함수
+# =========================================
+def get_checked_security_items():
+    """체크리스트에서 체크된 보안 항목들을 수집합니다."""
+    checked_items = []
+    
+    # 기본 보안 체크리스트
+    basic_checklist = [
+        "VPC 적용 여부",
+        "퍼블릭,프라이빗 서브넷 분리", 
+        "보안 그룹 설정",
+        "IAM 권한 최소화",
+        "데이터 암호화",
+        "로드밸런서 설정",
+        "WAF 설정",
+        "CloudFront 설정",
+        "CloudTrail 설정",
+        "CloudWatch 설정",
+        "CloudWatch 로그 설정",
+    ]
+    
+    for item in basic_checklist:
+        if st.session_state.get(f"basic_{item}", False):
+            checked_items.append(item)
+    
+    # 네트워크 섹션
+    network_items = [
+        "VPC 적용 여부 (예: VPC 생성, CIDR 10.0.0.0/16)",
+        "퍼블릭/프라이빗 서브넷 개수 지정 (예: AZ 2개에 퍼블릭 2개, 프라이빗 2개)",
+        "NACL 규칙 지정 (예: 모든 inbound deny, 443만 허용)",
+        "보안 그룹 규칙 명시 (예: EC2 인바운드 443만 ALB에서 허용)",
+        "VPC 엔드포인트 추가 (예: S3, DynamoDB에 대한 인터페이스 엔드포인트 생성)"
+    ]
+    
+    for item in network_items:
+        if st.session_state.get(f"network_{item}", False):
+            checked_items.append(item)
+    
+    # 트래픽 보안 섹션
+    traffic_items = [
+        "로드밸런서 HTTPS 리스너 생성 (예: ALB 443 listener)",
+        "HTTP → HTTPS 리디렉션 설정 (예: ALB 80 포트 → 443)",
+        "ACM 인증서 적용 (예: example.com ACM 인증서 연결)",
+        "WAF 추가 (예: SQLi, XSS 룰 적용)"
+    ]
+    
+    for item in traffic_items:
+        if st.session_state.get(f"traffic_{item}", False):
+            checked_items.append(item)
+    
+    # 컴퓨트 & 스토리지 섹션
+    compute_items = [
+        "EBS 암호화 활성화 (KMS 키 지정)",
+        "RDS 암호화 활성화 (KMS 키 지정 + 백업 암호화)",
+        "S3 기본 암호화 활성화 (SSE-KMS)",
+        "EFS/FSx 암호화 및 보안 그룹 연결",
+        "멀티 AZ 배포 설정 (예: RDS Multi-AZ, ALB 2 AZ)"
+    ]
+    
+    for item in compute_items:
+        if st.session_state.get(f"compute_{item}", False):
+            checked_items.append(item)
+    
+    # 접근제어 섹션
+    access_items = [
+        "IAM 역할 연결 (EC2, Lambda 최소 권한 Role)",
+        "Lambda 환경 변수 KMS 암호화 활성화",
+        "Secrets Manager 사용 (예: DB password 저장 및 rotation 설정)"
+    ]
+    
+    for item in access_items:
+        if st.session_state.get(f"access_{item}", False):
+            checked_items.append(item)
+    
+    # 로깅 & 모니터링 섹션
+    logging_items = [
+        "CloudTrail 전 리전 활성화",
+        "CloudTrail 로그 → S3 (BPA ON, SSE-KMS)",
+        "CloudTrail → CloudWatch Logs 연계"
+    ]
+    
+    for item in logging_items:
+        if st.session_state.get(f"logging_{item}", False):
+            checked_items.append(item)
+    
+    return checked_items
+
+def format_security_requirements(checked_items):
+    """체크된 보안 항목들을 Amazon Q 프롬프트 형식으로 변환합니다."""
+    if not checked_items:
+        return ""
+    
+    security_text = "\n\n보안 요구사항:\n"
+    security_text += "다음 보안 요소들을 반드시 다이어그램에 포함하고 적용해주세요\n 보안요소는 구분을 위해 요소 명칭 앞에 '***'별표 라벨로 명확하게 구분해주세요:\n"
+    
+    for i, item in enumerate(checked_items, 1):
+        # 예시 부분 제거하고 핵심 내용만 추출
+        clean_item = item.split(" (예:")[0] if " (예:" in item else item
+        security_text += f"{i}. {clean_item}\n"
+    
+    security_text += "\n위 보안 요구사항들중 모호한 사항들들을 AWS 모범사례에 따라 다이어그램에 시각적으로 표현해주세요."
+    
+    return security_text
+
+# =========================================
 # Amazon Q CLI 클라이언트 클래스
 # =========================================
 class AmazonQClient:
@@ -24,19 +129,19 @@ class AmazonQClient:
     def __init__(self):
         self.platform = platform.system()
     
-    def generate_diagram_prompt(self, tree_structure):
-        """트리 구조를 기반으로 다이어그램 생성 프롬프트 생성"""
+    def generate_diagram_prompt(self, tree_structure, security_requirements=""):
+        """트리 구조와 보안 요구사항을 기반으로 다이어그램 생성 프롬프트 생성"""
         return f"""
 다음 클라우드 아키텍처 트리 구조를 기반으로 다이어그램을 생성해주세요:
 
 아키텍처 구조:
-{tree_structure}
+{tree_structure}{security_requirements}
+
 
 작업 내용:
-1. "graph_attr={"dpi": "300", "size": "6.4,3.6"}" 비율로 다이어그램 생성
-2. 실제 다이어그램 이미지 파일(.png)을 './generated-diagrams' 폴더에 저장
-3. AWS 서비스 아이콘과 연결 관계를 포함한 시각적 아키텍처 다이어그램 생성
-4. 중복된 파일이있다면 V2 파일명으로 저장
+1. 실제 다이어그램 이미지 파일(.png)을 './generated-diagrams' 폴더에 저장
+2. AWS 서비스 아이콘과 연결 관계를 포함한 시각적 아키텍처 다이어그램 생성
+3. 중복된 파일이있다면 V2 파일명으로 저장
 
 응답 형식:
 
@@ -101,7 +206,15 @@ class AmazonQClient:
     def generate_diagram(self, tree_structure):
         """Amazon Q CLI를 통해 다이어그램 생성 요청"""
         try:
-            prompt = self.generate_diagram_prompt(tree_structure)
+            checked_items = get_checked_security_items()
+            security_requirements_text = format_security_requirements(checked_items)
+            
+            # 보안 요구사항이 있을 때만 프롬프트에 추가
+            if security_requirements_text:
+                prompt = self.generate_diagram_prompt(tree_structure, security_requirements_text)
+            else:
+                prompt = self.generate_diagram_prompt(tree_structure, "")
+                
             result = self.execute_command(prompt)
             
             if result and result.returncode == 0:
@@ -226,6 +339,7 @@ AWS 클라우드 아키텍처 전문가로서 답변해주세요. {context_info}
 3. 트리구조는 응답에 1회만 표시해주세요
 4. 각 컴포넌트의 역할과 연결 관계를 명확히 표시해주세요
 5. 필요시 사용자에게 다시 질문하여 명확하게 하세요
+6. 사용자의 요청 이외의 구성요소는 트리에 표시하지 마세요
 
 중요 규칙:
 - 모든 AWS 서비스와 리소스는 반드시 공식 영어 명칭을 사용하세요
@@ -271,6 +385,18 @@ def create_diagram_from_tree():
     if not current_tree:
         st.warning("⚠️ 다이어그램을 생성할 트리 구조가 없습니다. 먼저 아키텍처를 설계해주세요.")
         return
+    
+    # 체크된 보안 항목들 수집
+    checked_items = get_checked_security_items()
+    
+    # 체크된 보안 항목들 표시
+    if checked_items:
+        st.info("🔒 적용할 보안 요소들:")
+        for i, item in enumerate(checked_items, 1):
+            clean_item = item.split(" (예:")[0] if " (예:" in item else item
+            st.write(f"{i}. {clean_item}")
+    else:
+        st.info("ℹ️ 체크된 보안 항목이 없습니다. 기본 보안 설정으로 다이어그램을 생성합니다.")
     
     try:
         with st.spinner("🎨 Amazon Q를 통해 다이어그램을 생성하고 있습니다..."):
@@ -474,65 +600,90 @@ with colB:
     st.markdown('<div class="title">🔐 보안 적용 다이어그램</div>', unsafe_allow_html=True)
     secure_placeholder = st.empty()
     with secure_placeholder.container():
-        # 제작하기 버튼을 누르기 전에는 챗봇을 여기에 표시
-        if not ss.get("diagram_created", False):
-            # 챗봇을 보안 적용 다이어그램 공간에 표시
-            st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
-            with st.expander("아키텍처 설계 챗봇", expanded=True):
-                # 챗봇 상태 표시 (에러일 때만 표시)
-                if not api_ready:
-                    st.error("❌ Gemini API가 준비되지 않았습니다.")
-                    st.info("📝 .env 파일에 GEMINI_API_KEY=your_api_key_here 를 추가하세요.")
-                
-                # 챗봇 내용 렌더링
-                chat_html = '<div class="chat-container">'
-                for chat in ss["messages"]:
-                    role = chat["role"]
-                    content = chat["content"]
-                    if role == "user":
-                        chat_html += f"<div class='chat-bubble-wrapper user-bubble-wrapper'><div class='chat-bubble user-bubble'>{html.escape(content)}</div></div>"
-                    else:
-                        chat_html += f"<div class='chat-bubble-wrapper bot-bubble-wrapper'><div class='chat-bubble bot-bubble'>{html.escape(content)}</div></div>"
-                chat_html += '</div>'
-                st.markdown(chat_html, unsafe_allow_html=True)
-                st.markdown('<div class="chat-input-spacer"></div>', unsafe_allow_html=True)
-
-                # 입력창
-                prompt = st.chat_input("아키텍처 요청사항을 입력하세요")
-                if prompt and api_ready:
-                    # 사용자 메시지 추가
-                    ss["messages"].append({"role": "user", "content": prompt})
-                    
-                    # 챗봇 응답 생성
-                    with st.spinner("🤔 아키텍처 설계 중..."):
-                        bot_response = generate_chatbot_response(prompt)
-                        ss["messages"].append({"role": "assistant", "content": bot_response})
-                        
-                        # 트리 구조 추출 및 저장
-                        update_tree_structure(bot_response)
-                    
-                    # 페이지 새로고침
-                    st.rerun()
-                elif prompt and not api_ready:
-                    st.error("API가 준비되지 않았습니다. 환경변수를 확인해주세요.")
-        else:
-            # 제작하기 버튼을 누른 후에는 다이어그램 표시
-            display_diagram()
+        display_diagram()
 
 # 체크 리스트와 보안 요소 설명서를 한 줄에 배치
 col1, col2 = st.columns(2, gap="large")
 
 with col1:
     with st.expander("✅ 체크리스트", expanded=False):
-        checklist_items = [
+        # 기존 기본 체크리스트
+        st.markdown("**🔒 기본 보안 체크리스트**")
+        basic_checklist = [
             "VPC 적용 여부",
-            "서브넷 분리",
+            "퍼블릭,프라이빗 서브넷 분리", 
             "보안 그룹 설정",
             "IAM 권한 최소화",
-            "데이터 암호화"
+            "데이터 암호화",
+            "로드밸런서 설정",
+            "WAF 설정",
+            "CloudFront 설정",
+            "CloudTrail 설정",
+            "CloudWatch 설정",
+            "CloudWatch 로그 설정",
         ]
-        for item in checklist_items:
-            st.checkbox(item, key=f"check_{item}")
+        for item in basic_checklist:
+            st.checkbox(item, key=f"basic_{item}")
+        
+        st.markdown("---")
+        
+        # Amazon Q 지시용 상세 체크리스트
+        st.markdown("**🌐 Amazon Q 지시용 클라우드 보안 아키텍처 옵션**")
+        
+        # 네트워크 섹션
+        st.markdown("**📡 네트워크**")
+        network_items = [
+            "VPC 적용 여부",
+            "퍼블릭/프라이빗 서브넷 개수 지정",
+            "NACL 규칙 지정",
+            "보안 그룹 규칙 명시",
+            "VPC 엔드포인트 추가"
+        ]
+        for item in network_items:
+            st.checkbox(item, key=f"network_{item}")
+        
+        # 트래픽 보안 섹션
+        st.markdown("**🛡️ 트래픽 보안**")
+        traffic_items = [
+            "로드밸런서 HTTPS 리스너 생성",
+            "HTTP → HTTPS 리디렉션 설정",
+            "ACM 인증서 적용",
+            "WAF 추가"
+        ]
+        for item in traffic_items:
+            st.checkbox(item, key=f"traffic_{item}")
+        
+        # 컴퓨트 & 스토리지 섹션
+        st.markdown("**💻 컴퓨트 & 스토리지**")
+        compute_items = [
+            "EBS 암호화 활성화",
+            "RDS 암호화 활성화",
+            "S3 기본 암호화 활성화",
+            "EFS/FSx 암호화 및 보안 그룹 연결",
+            "멀티 AZ 배포 설정"
+        ]
+        for item in compute_items:
+            st.checkbox(item, key=f"compute_{item}")
+        
+        # 접근제어 섹션
+        st.markdown("**🔐 접근제어**")
+        access_items = [
+            "IAM 역할 연결",
+            "Lambda 환경 변수 KMS 암호화 활성화",
+            "Secrets Manager 사용"
+        ]
+        for item in access_items:
+            st.checkbox(item, key=f"access_{item}")
+        
+        # 로깅 & 모니터링 섹션
+        st.markdown("**📊 로깅 & 모니터링**")
+        logging_items = [
+            "CloudTrail 전 리전 활성화",
+            "CloudTrail 로그 → S3 (BPA ON, SSE-KMS)",
+            "CloudTrail → CloudWatch Logs 연계"
+        ]
+        for item in logging_items:
+            st.checkbox(item, key=f"logging_{item}")
 
 with col2:
     with st.expander("✨ 보안 요소 설명서", expanded=False):
@@ -544,44 +695,43 @@ with col2:
         )
         ss["board_suggestions"] = recs
 
-# 챗봇 영역 (제작하기 버튼을 누른 후에만 표시)
-if ss.get("diagram_created", False):
-    st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
-    with st.expander("아키텍처 설계 챗봇", expanded=True):
-        # 챗봇 상태 표시 (에러일 때만 표시)
-        if not api_ready:
-            st.error("❌ Gemini API가 준비되지 않았습니다.")
-            st.info("📝 .env 파일에 GEMINI_API_KEY=your_api_key_here 를 추가하세요.")
-        
-        # 챗봇 내용 렌더링
-        chat_html = '<div class="chat-container">'
-        for chat in ss["messages"]:
-            role = chat["role"]
-            content = chat["content"]
-            if role == "user":
-                chat_html += f"<div class='chat-bubble-wrapper user-bubble-wrapper'><div class='chat-bubble user-bubble'>{html.escape(content)}</div></div>"
-            else:
-                chat_html += f"<div class='chat-bubble-wrapper bot-bubble-wrapper'><div class='chat-bubble bot-bubble'>{html.escape(content)}</div></div>"
-        chat_html += '</div>'
-        st.markdown(chat_html, unsafe_allow_html=True)
-        st.markdown('<div class="chat-input-spacer"></div>', unsafe_allow_html=True)
+# 챗봇 영역
+st.markdown('<div class="chat-title">💬 챗봇</div>', unsafe_allow_html=True)
+with st.expander("아키텍처 설계 챗봇", expanded=True):
+    # 챗봇 상태 표시 (에러일 때만 표시)
+    if not api_ready:
+        st.error("❌ Gemini API가 준비되지 않았습니다.")
+        st.info("📝 .env 파일에 GEMINI_API_KEY=your_api_key_here 를 추가하세요.")
+    
+    # 챗봇 내용 렌더링
+    chat_html = '<div class="chat-container">'
+    for chat in ss["messages"]:
+        role = chat["role"]
+        content = chat["content"]
+        if role == "user":
+            chat_html += f"<div class='chat-bubble-wrapper user-bubble-wrapper'><div class='chat-bubble user-bubble'>{html.escape(content)}</div></div>"
+        else:
+            chat_html += f"<div class='chat-bubble-wrapper bot-bubble-wrapper'><div class='chat-bubble bot-bubble'>{html.escape(content)}</div></div>"
+    chat_html += '</div>'
+    st.markdown(chat_html, unsafe_allow_html=True)
+    st.markdown('<div class="chat-input-spacer"></div>', unsafe_allow_html=True)
 
-        # 입력창
-        prompt = st.chat_input("아키텍처 요청사항을 입력하세요")
-        if prompt and api_ready:
-            # 사용자 메시지 추가
-            ss["messages"].append({"role": "user", "content": prompt})
+    # 입력창
+    prompt = st.chat_input("아키텍처 요청사항을 입력하세요")
+    if prompt and api_ready:
+        # 사용자 메시지 추가
+        ss["messages"].append({"role": "user", "content": prompt})
+        
+        # 챗봇 응답 생성
+        with st.spinner("🤔 아키텍처 설계 중..."):
+            bot_response = generate_chatbot_response(prompt)
+            ss["messages"].append({"role": "assistant", "content": bot_response})
             
-            # 챗봇 응답 생성
-            with st.spinner("🤔 아키텍처 설계 중..."):
-                bot_response = generate_chatbot_response(prompt)
-                ss["messages"].append({"role": "assistant", "content": bot_response})
-                
-                # 트리 구조 추출 및 저장
-                update_tree_structure(bot_response)
-            
-            # 페이지 새로고침
-            st.rerun()
-        elif prompt and not api_ready:
-            st.error("API가 준비되지 않았습니다. 환경변수를 확인해주세요.")
+            # 트리 구조 추출 및 저장
+            update_tree_structure(bot_response)
+        
+        # 페이지 새로고침
+        st.rerun()
+    elif prompt and not api_ready:
+        st.error("API가 준비되지 않았습니다. 환경변수를 확인해주세요.")
 
